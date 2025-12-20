@@ -38,23 +38,31 @@ async function generateMesh(meshName) {
     await page.keyboard.up('Meta');
     await page.keyboard.type(sdfCode);
 
-    // Set size inputs
+    // Set size inputs first
     await page.$eval('#bounding-w', (el, val) => el.value = val, params.size[0]);
     await page.$eval('#bounding-h', (el, val) => el.value = val, params.size[1]);
     await page.$eval('#bounding-d', (el, val) => el.value = val, params.size[2]);
 
-    // Set resolution inputs
-    await page.$eval('#download-x', (el, val) => el.value = val, params.resolution[0]);
-    await page.$eval('#download-y', (el, val) => el.value = val, params.resolution[1]);
-    await page.$eval('#download-z', (el, val) => el.value = val, params.resolution[2]);
-
-    // Trigger change events so the UI updates
+    // Trigger change events for size
     await page.evaluate(() => {
-        ['bounding-w', 'bounding-h', 'bounding-d', 'download-x', 'download-y', 'download-z'].forEach(id => {
+        ['bounding-w', 'bounding-h', 'bounding-d'].forEach(id => {
             const el = document.getElementById(id);
             el.dispatchEvent(new Event('input', { bubbles: true }));
             el.dispatchEvent(new Event('change', { bubbles: true }));
         });
+    });
+
+    // Wait a moment for proportional calculations to happen
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Now set resolution - only the first value (X), others will auto-calculate
+    await page.$eval('#download-x', (el, val) => el.value = val, params.resolution[0]);
+
+    // Trigger change event for resolution
+    await page.evaluate(() => {
+        const el = document.getElementById('download-x');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
     console.log('Clicking Generate button...');
