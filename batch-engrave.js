@@ -70,18 +70,18 @@ function dateToGlyphIndices(dateStr) {
   return indices;
 }
 
-async function generateMeshForDate(page, dateStr, sdfCode, params, textureBase64, resolution) {
+async function generateMeshForDate(page, dateStr, sdfCode, params, textureBase64, resolution, itemId = null) {
   const unixTime = parseDateToUnix(dateStr);
   const displayText = formatDateWithDots(dateStr);
   const glyphIndices = dateToGlyphIndices(dateStr);
 
-  console.log(`\n📅 Processing: ${dateStr}`);
+  console.log(`\n📅 Processing: ${dateStr}${itemId ? ` (${itemId})` : ''}`);
   console.log(`   Display: ${displayText}`);
   console.log(`   Unix: ${unixTime}`);
   console.log(`   Glyphs: [${glyphIndices.join(', ')}]`);
 
   const result = await page.evaluate(
-    async (sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr) => {
+    async (sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, itemId) => {
       return new Promise((resolve) => {
         const runGeneration = async () => {
           try {
@@ -124,9 +124,9 @@ async function generateMeshForDate(page, dateStr, sdfCode, params, textureBase64
 
             window.cubeMarch.setVolume(dims, bounds);
 
-            // Filename includes date
+            // Filename includes id if provided, otherwise date
             const safeDateStr = dateStr.replace(/-/g, '');
-            const filename = `ephemeris-${safeDateStr}-${resolution}`;
+            const filename = itemId ? `${itemId}` : `ephemeris-${safeDateStr}-${resolution}`;
             window.exporter.startModel(filename);
 
             console.log(`Starting mesh generation for ${dateStr}...`);
@@ -162,7 +162,7 @@ async function generateMeshForDate(page, dateStr, sdfCode, params, textureBase64
         runGeneration();
       });
     },
-    sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr
+    sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, itemId
   );
 
   return result;
@@ -178,10 +178,13 @@ Batch Engrave - Generate multiple engraved ephemeris ring meshes
 Usage:
   node batch-engrave.js [options] <date1> <date2> ...
   node batch-engrave.js --file <dates.txt>
+  node batch-engrave.js --json <spec.json>
 
 Options:
   --resolution <n>  Resolution per axis (default: 600)
   --file <path>     Read dates from file (one per line)
+  --json <path>     Read from JSON file with format:
+                    [{"id": "...", "engraving": "mm-dd-yyyy"}, ...]
   --help            Show this help
 
 Date format: mm-dd-yyyy
@@ -191,6 +194,7 @@ Examples:
   node batch-engrave.js 01-01-2000 12-25-2024
   node batch-engrave.js --resolution 400 07-04-1776 01-01-2000
   node batch-engrave.js --file my-dates.txt
+  node batch-engrave.js --json ../specifications/transactions_batch_2.json
 
 Setup (run once first):
   cd ../engraving-table && node setup-ephemeris-variable.js
@@ -200,39 +204,48 @@ Setup (run once first):
 
   // Parse arguments
   let resolution = 600;
-  let dates = [];
+  let items = [];  // Array of {date, id} objects
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--resolution' && args[i + 1]) {
       resolution = parseInt(args[++i]);
+    } else if (args[i] === '--json' && args[i + 1]) {
+      const filePath = args[++i];
+      const jsonContent = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      for (const entry of jsonContent) {
+        if (entry.engraving) {
+          items.push({ date: entry.engraving, id: entry.id || null });
+        }
+      }
     } else if (args[i] === '--file' && args[i + 1]) {
       const filePath = args[++i];
       const fileContent = fs.readFileSync(filePath, 'utf8');
-      dates = dates.concat(
-        fileContent.split('\n')
-          .map(line => line.trim())
-          .filter(line => line && !line.startsWith('#'))
-      );
+      const dates = fileContent.split('\n')
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith('#'));
+      for (const date of dates) {
+        items.push({ date, id: null });
+      }
     } else if (!args[i].startsWith('--')) {
-      dates.push(args[i]);
+      items.push({ date: args[i], id: null });
     }
   }
 
-  if (dates.length === 0) {
+  if (items.length === 0) {
     console.error('Error: No dates provided');
     process.exit(1);
   }
 
   // Validate all dates first
   console.log('📋 Validating dates...');
-  for (const date of dates) {
+  for (const item of items) {
     try {
-      parseDateToUnix(date);
-      formatDateWithDots(date);
-      dateToGlyphIndices(date);
-      console.log(`   ✓ ${date}`);
+      parseDateToUnix(item.date);
+      formatDateWithDots(item.date);
+      dateToGlyphIndices(item.date);
+      console.log(`   ✓ ${item.date}${item.id ? ` (${item.id})` : ''}`);
     } catch (err) {
-      console.error(`   ✗ ${date}: ${err.message}`);
+      console.error(`   ✗ ${item.date}: ${err.message}`);
       process.exit(1);
     }
   }
@@ -253,7 +266,7 @@ Setup (run once first):
   const params = JSON.parse(fs.readFileSync(paramsFile, 'utf8'));
   const textureBase64 = fs.readFileSync(textureFile).toString('base64');
 
-  console.log(`\n🚀 Generating ${dates.length} mesh(es) at resolution ${resolution}...`);
+  console.log(`\n🚀 Generating ${items.length} mesh(es) at resolution ${resolution}...`);
 
   // Launch browser
   const browser = await puppeteer.launch({
@@ -278,9 +291,9 @@ Setup (run once first):
     { timeout: 10000 }
   );
 
-  // Process each date
+  // Process each item
   const results = [];
-  for (const date of dates) {
+  for (const item of items) {
     // Small delay between meshes to let downloads complete
     if (results.length > 0) {
       console.log('⏳ Waiting before next mesh...');
@@ -288,7 +301,7 @@ Setup (run once first):
     }
 
     const result = await generateMeshForDate(
-      page, date, sdfCode, params, textureBase64, resolution
+      page, item.date, sdfCode, params, textureBase64, resolution, item.id
     );
     results.push(result);
 
@@ -299,7 +312,7 @@ Setup (run once first):
         return progress && progress.includes('Complete');
       },
       { timeout: 600000 },  // 10 minute timeout per mesh
-      date
+      item.date
     );
   }
 
