@@ -70,18 +70,31 @@ function dateToGlyphIndices(dateStr) {
   return indices;
 }
 
-async function generateMeshForDate(page, dateStr, sdfCode, params, textureBase64, resolution, itemId = null) {
+async function generateMeshForDate(page, item, sdfCode, params, textureBase64, resolution) {
+  const dateStr = item.date;
   const unixTime = parseDateToUnix(dateStr);
   const displayText = formatDateWithDots(dateStr);
   const glyphIndices = dateToGlyphIndices(dateStr);
 
-  console.log(`\n📅 Processing: ${dateStr}${itemId ? ` (${itemId})` : ''}`);
+  // Build filename: ring(index)_date(date)_size(size)_batch(batch)
+  let filename;
+  if (item.index !== undefined) {
+    const parts = [`ring(${item.index})`];
+    parts.push(`date(${dateStr})`);
+    if (item.size) parts.push(`size(${item.size})`);
+    if (item.batch) parts.push(`batch(${item.batch})`);
+    filename = parts.join('_');
+  } else {
+    filename = `ephemeris-${dateStr.replace(/-/g, '')}-${resolution}`;
+  }
+
+  console.log(`\n📅 Processing: ${dateStr}${item.id ? ` (${item.id})` : ''}`);
   console.log(`   Display: ${displayText}`);
   console.log(`   Unix: ${unixTime}`);
-  console.log(`   Glyphs: [${glyphIndices.join(', ')}]`);
+  console.log(`   Filename: ${filename}`);
 
   const result = await page.evaluate(
-    async (sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, itemId) => {
+    async (sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, filename) => {
       return new Promise((resolve) => {
         const runGeneration = async () => {
           try {
@@ -124,9 +137,6 @@ async function generateMeshForDate(page, dateStr, sdfCode, params, textureBase64
 
             window.cubeMarch.setVolume(dims, bounds);
 
-            // Filename includes id if provided, otherwise date
-            const safeDateStr = dateStr.replace(/-/g, '');
-            const filename = itemId ? `${itemId}` : `ephemeris-${safeDateStr}-${resolution}`;
             window.exporter.startModel(filename);
 
             console.log(`Starting mesh generation for ${dateStr}...`);
@@ -162,7 +172,7 @@ async function generateMeshForDate(page, dateStr, sdfCode, params, textureBase64
         runGeneration();
       });
     },
-    sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, itemId
+    sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, filename
   );
 
   return result;
@@ -212,11 +222,17 @@ Setup (run once first):
     } else if (args[i] === '--json' && args[i + 1]) {
       const filePath = args[++i];
       const jsonContent = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      for (const entry of jsonContent) {
+      jsonContent.forEach((entry, index) => {
         if (entry.engraving) {
-          items.push({ date: entry.engraving, id: entry.id || null });
+          items.push({
+            date: entry.engraving,
+            id: entry.id || null,
+            size: entry.size || null,
+            batch: entry.batch || null,
+            index: index + 1  // 1-based index
+          });
         }
-      }
+      });
     } else if (args[i] === '--file' && args[i + 1]) {
       const filePath = args[++i];
       const fileContent = fs.readFileSync(filePath, 'utf8');
@@ -301,7 +317,7 @@ Setup (run once first):
     }
 
     const result = await generateMeshForDate(
-      page, item.date, sdfCode, params, textureBase64, resolution, item.id
+      page, item, sdfCode, params, textureBase64, resolution
     );
     results.push(result);
 
