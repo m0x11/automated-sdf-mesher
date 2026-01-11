@@ -10,6 +10,9 @@ uniform vec3 boundsB;
 uniform vec3 dims;
 uniform float time;
 
+// Custom texture uniforms (inserted at runtime)
+INSERT_TEXTURE_DECLARATIONS
+
 vec3 vertDims = dims + vec3(1);
 vec3 scale = (boundsB - boundsA) / dims;
 vec3 shift = boundsA;

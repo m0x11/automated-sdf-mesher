@@ -72060,7 +72060,7 @@ var CubeMarch = function() {
     this.scene = new Scene(1, 1);
 
     this.shaderVert = "#define GLSLIFY 1\nattribute vec3 position;\n\nvoid main() {\n    gl_Position = vec4(position, 1.0);\n}\n";
-    this.calcPotentialsFrag = "precision mediump float;\n#define GLSLIFY 1\n\nint coordToIndex(vec2 coord, vec2 size) {\n    return int(\n        floor(coord.x) + (floor(coord.y) * size.x)\n    );\n}\n\n#define FLOAT_MAX  1.70141184e38\n#define FLOAT_MIN  1.17549435e-38\n\nlowp vec4 encode_float_1604150559(highp float v) {\n  highp float av = abs(v);\n\n  //Handle special cases\n  if(av < FLOAT_MIN) {\n    return vec4(0.0, 0.0, 0.0, 0.0);\n  } else if(v > FLOAT_MAX) {\n    return vec4(127.0, 128.0, 0.0, 0.0) / 255.0;\n  } else if(v < -FLOAT_MAX) {\n    return vec4(255.0, 128.0, 0.0, 0.0) / 255.0;\n  }\n\n  highp vec4 c = vec4(0,0,0,0);\n\n  //Compute exponent and mantissa\n  highp float e = floor(log2(av));\n  highp float m = av * pow(2.0, -e) - 1.0;\n  \n  //Unpack mantissa\n  c[1] = floor(128.0 * m);\n  m -= c[1] / 128.0;\n  c[2] = floor(32768.0 * m);\n  m -= c[2] / 32768.0;\n  c[3] = floor(8388608.0 * m);\n  \n  //Unpack exponent\n  highp float ebias = e + 127.0;\n  c[0] = floor(ebias / 2.0);\n  ebias -= c[0] * 2.0;\n  c[1] += floor(ebias) * 128.0; \n\n  //Unpack sign bit\n  c[0] += 128.0 * step(0.0, -v);\n\n  //Scale back to range\n  return c / 255.0;\n}\n\nuniform vec2 resolution;\n\nuniform vec3 boundsA;\nuniform vec3 boundsB;\nuniform vec3 dims;\nuniform float time;\n\nvec3 vertDims = dims + vec3(1);\nvec3 scale = (boundsB - boundsA) / dims;\nvec3 shift = boundsA;\n\nINSERT_MAP_DISTANCE\n\nvec3 vertFromIndex(float index) {\n    vec3 vert = vec3(0);\n    vert.x = mod(index, vertDims.x);\n    vert.y = mod(floor(index / vertDims.x), vertDims.y);\n    vert.z = mod(floor(index / (vertDims.y * vertDims.x)), vertDims.z);\n    return scale * vert + shift; \n}\n\nvoid main() {\n\n    float vertIndex = float(coordToIndex(gl_FragCoord.xy, resolution.xy));\n\n    if (vertIndex >= vertDims.x * vertDims.y * vertDims.z) {\n        gl_FragColor = vec4(1);\n        return;\n    }\n\n    vec3 vert = vertFromIndex(vertIndex);\n    float potential = mapDistance(vert);\n    gl_FragColor = encode_float_1604150559(potential);\n}\n";
+    this.calcPotentialsFrag = "precision mediump float;\n#define GLSLIFY 1\n\nint coordToIndex(vec2 coord, vec2 size) {\n    return int(\n        floor(coord.x) + (floor(coord.y) * size.x)\n    );\n}\n\n#define FLOAT_MAX  1.70141184e38\n#define FLOAT_MIN  1.17549435e-38\n\nlowp vec4 encode_float_1604150559(highp float v) {\n  highp float av = abs(v);\n\n  //Handle special cases\n  if(av < FLOAT_MIN) {\n    return vec4(0.0, 0.0, 0.0, 0.0);\n  } else if(v > FLOAT_MAX) {\n    return vec4(127.0, 128.0, 0.0, 0.0) / 255.0;\n  } else if(v < -FLOAT_MAX) {\n    return vec4(255.0, 128.0, 0.0, 0.0) / 255.0;\n  }\n\n  highp vec4 c = vec4(0,0,0,0);\n\n  //Compute exponent and mantissa\n  highp float e = floor(log2(av));\n  highp float m = av * pow(2.0, -e) - 1.0;\n  \n  //Unpack mantissa\n  c[1] = floor(128.0 * m);\n  m -= c[1] / 128.0;\n  c[2] = floor(32768.0 * m);\n  m -= c[2] / 32768.0;\n  c[3] = floor(8388608.0 * m);\n  \n  //Unpack exponent\n  highp float ebias = e + 127.0;\n  c[0] = floor(ebias / 2.0);\n  ebias -= c[0] * 2.0;\n  c[1] += floor(ebias) * 128.0; \n\n  //Unpack sign bit\n  c[0] += 128.0 * step(0.0, -v);\n\n  //Scale back to range\n  return c / 255.0;\n}\n\nuniform vec2 resolution;\n\nuniform vec3 boundsA;\nuniform vec3 boundsB;\nuniform vec3 dims;\nuniform float time;\n\n// Custom texture uniforms (inserted at runtime)\nINSERT_TEXTURE_DECLARATIONS\n\nvec3 vertDims = dims + vec3(1);\nvec3 scale = (boundsB - boundsA) / dims;\nvec3 shift = boundsA;\n\nINSERT_MAP_DISTANCE\n\nvec3 vertFromIndex(float index) {\n    vec3 vert = vec3(0);\n    vert.x = mod(index, vertDims.x);\n    vert.y = mod(floor(index / vertDims.x), vertDims.y);\n    vert.z = mod(floor(index / (vertDims.y * vertDims.x)), vertDims.z);\n    return scale * vert + shift; \n}\n\nvoid main() {\n\n    float vertIndex = float(coordToIndex(gl_FragCoord.xy, resolution.xy));\n\n    if (vertIndex >= vertDims.x * vertDims.y * vertDims.z) {\n        gl_FragColor = vec4(1);\n        return;\n    }\n\n    vec3 vert = vertFromIndex(vertIndex);\n    float potential = mapDistance(vert);\n    gl_FragColor = encode_float_1604150559(potential);\n}\n";
 
     this.startTime = new Date().getTime();
     this.numWorkers = 4;
@@ -72205,14 +72205,29 @@ CubeMarch.prototype.march = function(config) {
     this.cubesMarched = 0;
     var gl = this.scene.gl;
 
+    // Build shader with optional texture declarations
+    var textureDeclarations = '';
+    if (config.textureDeclarations) {
+        textureDeclarations = config.textureDeclarations;
+    }
+
+    var shaderCode = this.calcPotentialsFrag
+        .replace('INSERT_TEXTURE_DECLARATIONS', textureDeclarations)
+        .replace('INSERT_MAP_DISTANCE', config.mapDistance);
+
     this.potentialsProg = this.scene.createProgramInfo(
         this.shaderVert,
-        this.calcPotentialsFrag.replace('INSERT_MAP_DISTANCE', config.mapDistance)
+        shaderCode
     );
 
     var uniforms = {
         time: new Date().getTime() - this.startTime
     };
+
+    // Add custom uniforms (including textures)
+    if (config.uniforms) {
+        Object.assign(uniforms, config.uniforms);
+    }
 
     var pixelCount = gl.drawingBufferWidth * gl.drawingBufferHeight;
     var pixels = new Uint8Array(pixelCount * 4);
@@ -72260,6 +72275,7 @@ module.exports = CubeMarch;
 },{"./scene":26,"./split-volume":27,"./worker-pool":30,"glsl-read-float":9,"twgl.js":16}],24:[function(require,module,exports){
 "use strict";
 
+var twgl = require("twgl.js");
 var CubeMarch = require("./cubemarch");
 var STLExporter = require("./stl-exporter");
 var Renderer = require("./renderer");
@@ -72277,6 +72293,12 @@ var Editor = require('glsl-editor');
 var cubeMarch = new CubeMarch();
 var exporter = new STLExporter();
 var renderer = new Renderer(document.getElementById('scene'));
+
+// Expose for automation
+window.cubeMarch = cubeMarch;
+window.exporter = exporter;
+window.twgl = twgl;
+// Will set editor and ractive after they're created
 
 // UI
 
@@ -72385,7 +72407,11 @@ downloadControls.init();
 boundingControls.init();
 editorControls.init();
 
-},{"./controls/bounding-controls.js":18,"./controls/download-controls.js":20,"./controls/editor-controls.js":21,"./controls/preview-controls.js":22,"./cubemarch":23,"./renderer":25,"./stl-exporter":28,"glsl-editor":7,"glsl-editor/css":5,"glsl-editor/theme":8,"ractive":13}],25:[function(require,module,exports){
+// Expose editor and ractive for automation
+window.editor = editor;
+window.ractive = ractive;
+
+},{"./controls/bounding-controls.js":18,"./controls/download-controls.js":20,"./controls/editor-controls.js":21,"./controls/preview-controls.js":22,"./cubemarch":23,"./renderer":25,"./stl-exporter":28,"glsl-editor":7,"glsl-editor/css":5,"glsl-editor/theme":8,"ractive":13,"twgl.js":16}],25:[function(require,module,exports){
 "use strict";
 
 var THREE = require('three');
