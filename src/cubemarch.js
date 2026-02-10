@@ -156,14 +156,29 @@ CubeMarch.prototype.march = function(config) {
     this.cubesMarched = 0;
     var gl = this.scene.gl;
 
+    // Build shader with optional texture declarations
+    var textureDeclarations = '';
+    if (config.textureDeclarations) {
+        textureDeclarations = config.textureDeclarations;
+    }
+
+    var shaderCode = this.calcPotentialsFrag
+        .replace('INSERT_TEXTURE_DECLARATIONS', textureDeclarations)
+        .replace('INSERT_MAP_DISTANCE', config.mapDistance);
+
     this.potentialsProg = this.scene.createProgramInfo(
         this.shaderVert,
-        this.calcPotentialsFrag.replace('INSERT_MAP_DISTANCE', config.mapDistance)
+        shaderCode
     );
 
     var uniforms = {
         time: new Date().getTime() - this.startTime
     };
+
+    // Add custom uniforms (including textures)
+    if (config.uniforms) {
+        Object.assign(uniforms, config.uniforms);
+    }
 
     var pixelCount = gl.drawingBufferWidth * gl.drawingBufferHeight;
     var pixels = new Uint8Array(pixelCount * 4);

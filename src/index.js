@@ -1,5 +1,6 @@
 "use strict";
 
+var twgl = require("twgl.js");
 var CubeMarch = require("./cubemarch");
 var STLExporter = require("./stl-exporter");
 var Renderer = require("./renderer");
@@ -17,6 +18,12 @@ var fs = require('fs');
 var cubeMarch = new CubeMarch();
 var exporter = new STLExporter();
 var renderer = new Renderer(document.getElementById('scene'));
+
+// Expose for automation
+window.cubeMarch = cubeMarch;
+window.exporter = exporter;
+window.twgl = twgl;
+// Will set editor and ractive after they're created
 
 // UI
 
@@ -124,3 +131,7 @@ previewControls.init();
 downloadControls.init();
 boundingControls.init();
 editorControls.init();
+
+// Expose editor and ractive for automation
+window.editor = editor;
+window.ractive = ractive;

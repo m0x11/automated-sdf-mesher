@@ -28,6 +28,7 @@
     "lodash.isequal": "^4.1.0",
     "normalize.css": "^3.0.3",
     "npm-watch": "^0.1.1",
+    "puppeteer": "^24.34.0",
     "ractive": "^0.7.3",
     "rework-npm-cli": "^0.1.1",
     "tap-spec": "^4.1.1",
