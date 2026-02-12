@@ -40,7 +40,7 @@ function parseDateToUnix(dateStr) {
   return Math.floor(date.getTime() / 1000);
 }
 
-function formatDateWithDots(dateStr) {
+function formatDateWithDots(dateStr, dateFormat = 'mdy') {
   const match = dateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
   if (!match) throw new Error(`Invalid date format: ${dateStr}`);
 
@@ -48,11 +48,14 @@ function formatDateWithDots(dateStr) {
   const day = match[2].padStart(2, '0');
   const year = match[3];
 
+  if (dateFormat === 'dmy') {
+    return `${day}·${month}·${year}`;
+  }
   return `${month}·${day}·${year}`;
 }
 
-function dateToGlyphIndices(dateStr) {
-  const displayText = formatDateWithDots(dateStr);
+function dateToGlyphIndices(dateStr, dateFormat = 'mdy') {
+  const displayText = formatDateWithDots(dateStr, dateFormat);
   const indices = [];
 
   for (const char of displayText) {
@@ -72,24 +75,26 @@ function dateToGlyphIndices(dateStr) {
 
 async function generateMeshForDate(page, item, sdfCode, params, textureBase64, resolution) {
   const dateStr = item.date;
+  const dateFormat = item.dateFormat || 'mdy';
   const unixTime = parseDateToUnix(dateStr);
-  const displayText = formatDateWithDots(dateStr);
-  const glyphIndices = dateToGlyphIndices(dateStr);
+  const displayText = formatDateWithDots(dateStr, dateFormat);
+  const glyphIndices = dateToGlyphIndices(dateStr, dateFormat);
 
-  // Build filename: ring(index)_date(date)_size(size)_batch(batch)
+  // Build filename: ring(index)_date(date)_fmt(dmy)_size(size)_batch(batch)
   let filename;
   if (item.index !== undefined) {
     const parts = [`ring(${item.index})`];
     parts.push(`date(${dateStr})`);
+    if (dateFormat === 'dmy') parts.push(`fmt(dmy)`);
     if (item.size) parts.push(`size(${item.size})`);
     if (item.batch) parts.push(`batch(${item.batch})`);
     filename = parts.join('_');
   } else {
-    filename = `ephemeris-${dateStr.replace(/-/g, '')}-${resolution}`;
+    filename = `ephemeris-${dateStr.replace(/-/g, '')}${dateFormat === 'dmy' ? '-dmy' : ''}-${resolution}`;
   }
 
   console.log(`\n📅 Processing: ${dateStr}${item.id ? ` (${item.id})` : ''}`);
-  console.log(`   Display: ${displayText}`);
+  console.log(`   Display: ${displayText} (${dateFormat === 'dmy' ? 'dd·mm·yyyy' : 'mm·dd·yyyy'})`);
   console.log(`   Unix: ${unixTime}`);
   console.log(`   Filename: ${filename}`);
 
@@ -229,6 +234,7 @@ Setup (run once first):
             id: entry.id || null,
             size: entry.size || null,
             batch: entry.batch || null,
+            dateFormat: entry.dateFormat || 'mdy',
             index: index + 1  // 1-based index
           });
         }
@@ -257,9 +263,9 @@ Setup (run once first):
   for (const item of items) {
     try {
       parseDateToUnix(item.date);
-      formatDateWithDots(item.date);
-      dateToGlyphIndices(item.date);
-      console.log(`   ✓ ${item.date}${item.id ? ` (${item.id})` : ''}`);
+      const display = formatDateWithDots(item.date, item.dateFormat || 'mdy');
+      dateToGlyphIndices(item.date, item.dateFormat || 'mdy');
+      console.log(`   ✓ ${item.date}${item.id ? ` (${item.id})` : ''} → ${display}`);
     } catch (err) {
       console.error(`   ✗ ${item.date}: ${err.message}`);
       process.exit(1);
