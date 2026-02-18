@@ -251,7 +251,7 @@ async function main() {
       { timeout: 10000 }
     );
 
-    const meshParams = { size: job.size, resolution: job.resolution };
+    const meshParams = { size: job.size, resolution: job.resolution, sizeMM: job.sizeMM };
 
     // page.evaluate returns the total number of parts saved
     const result = await page.evaluate(
@@ -275,7 +275,7 @@ async function main() {
 
               window.cubeMarch.setVolume(dims, bounds);
               window.exporter.startModel(
-                meshName + "-" + dims[0] + "x" + dims[1] + "x" + dims[2]
+                meshName + "-" + params.sizeMM + "mm-" + dims[0] + "x" + dims[1] + "x" + dims[2]
               );
 
               console.log("Starting mesh generation for " + meshName + "...");
