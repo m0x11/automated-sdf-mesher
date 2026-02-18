@@ -190,8 +190,8 @@ async function main() {
     const json = JSON.parse(fs.readFileSync(f, "utf8"));
     const name = json.name || path.basename(f, ".json");
     const finalSizeMM = sizeMM ?? json.sizeMM ?? 30;
-    const { sdfCode, size, resolution } = buildSdf(json);
-    return { name, sdfCode, size, resolution, sizeMM: finalSizeMM, file: f };
+    const { sdfCode, size, resolution, xOffset } = buildSdf(json);
+    return { name, sdfCode, size, resolution, xOffset, sizeMM: finalSizeMM, file: f };
   });
 
   console.log(`\n🎄 Batch snowflake meshing: ${jobs.length} form(s)\n`);
