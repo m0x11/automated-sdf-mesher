@@ -121,10 +121,12 @@ function buildSdf(formJson) {
   const hookExtent = hookPosY + hookSize + 1.5;
   const halfExtent =
     Math.max(outerRadius + outerThickness + 0.5, hookExtent, torusExtent) + 0.3;
-  // X extent: hook displaces ~1.0 in X plus its radius, and may have xOffset
+  // X extent: asymmetric — hook side (+X) needs full extent, body side (-X) is thin
   const hookXExtent = 1.1 + hookSize + Math.abs(merged.hookXOffset || 0) + 0.3;
-  const xHalf = Math.max(0.75, hookXExtent);
-  const bboxSize = [xHalf * 2, halfExtent * 2, halfExtent * 2].map(round3);
+  const xPos = Math.max(0.75, hookXExtent);  // hook side (+X)
+  const xNeg = 0.75;                         // body side (-X), snowflake is thin in X
+  const bboxSize = [round3(xPos + xNeg), round3(halfExtent * 2), round3(halfExtent * 2)];
+  const bboxXOffset = round3((xPos - xNeg) / 2); // shift bounds toward hook
   const resolution = bboxSize.map((s) => Math.round(s * density));
 
   const sdfCode = [
@@ -140,7 +142,7 @@ function buildSdf(formJson) {
     "",
   ].join("\n");
 
-  return { sdfCode, size: bboxSize, resolution };
+  return { sdfCode, size: bboxSize, resolution, xOffset: bboxXOffset };
 }
 
 // ── Download tracking ────────────────────────────────────────────────
@@ -251,7 +253,7 @@ async function main() {
       { timeout: 10000 }
     );
 
-    const meshParams = { size: job.size, resolution: job.resolution, sizeMM: job.sizeMM };
+    const meshParams = { size: job.size, resolution: job.resolution, sizeMM: job.sizeMM, xOffset: job.xOffset };
 
     // page.evaluate returns the total number of parts saved
     const result = await page.evaluate(
@@ -268,9 +270,10 @@ async function main() {
               window.ractive.set("download.resolution.z", params.resolution[2]);
 
               const dims = params.resolution;
+              const xOff = params.xOffset || 0;
               const bounds = [
-                [-params.size[0] / 2, -params.size[1] / 2, -params.size[2] / 2],
-                [params.size[0] / 2, params.size[1] / 2, params.size[2] / 2],
+                [-params.size[0] / 2 + xOff, -params.size[1] / 2, -params.size[2] / 2],
+                [params.size[0] / 2 + xOff, params.size[1] / 2, params.size[2] / 2],
               ];
 
               window.cubeMarch.setVolume(dims, bounds);
