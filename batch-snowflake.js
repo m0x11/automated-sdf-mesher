@@ -122,7 +122,10 @@ function buildSdf(formJson) {
   const halfExtent =
     Math.max(outerRadius + outerThickness + 0.5, hookExtent, torusExtent) + 0.3;
   // X extent: asymmetric — hook side (+X) needs full extent, body side (-X) is thin
-  const hookXExtent = 1.1 + hookSize + Math.abs(merged.hookXOffset || 0) + 0.3;
+  // Angel bounding boxes in the SDF: Type 0 extends 1.0 from center at x=1.033,
+  // Type 1 angel2 extends 2.0 from center at x=1.0. Max X = hookXOffset + base.
+  const hookBase = merged.hookType > 0.5 ? 3.0 : 2.1;
+  const hookXExtent = hookBase + Math.abs(merged.hookXOffset || 0) + 0.3;
   const xPos = Math.max(0.75, hookXExtent);  // hook side (+X)
   const xNeg = 0.75;                         // body side (-X), snowflake is thin in X
   const bboxSize = [round3(xPos + xNeg), round3(halfExtent * 2), round3(halfExtent * 2)];
