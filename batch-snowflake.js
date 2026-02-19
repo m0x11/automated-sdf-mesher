@@ -121,15 +121,16 @@ function buildSdf(formJson) {
   const hookExtent = hookPosY + hookSize + 1.5;
   const halfExtent =
     Math.max(outerRadius + outerThickness + 0.5, hookExtent, torusExtent) + 0.3;
-  // X extent: asymmetric — hook side (+X) needs full extent, body side (-X) is thin
-  // Angel bounding boxes in the SDF: Type 0 extends 1.0 from center at x=1.033,
-  // Type 1 angel2 extends 2.0 from center at x=1.0. Max X = hookXOffset + base.
-  const hookBase = merged.hookType > 0.5 ? 3.0 : 2.1;
-  const hookXExtent = hookBase + hookSize + Math.abs(merged.hookXOffset || 0) + 0.3;
-  const xPos = Math.max(0.75, hookXExtent);  // hook side (+X)
-  const xNeg = 0.75;                         // body side (-X), snowflake is thin in X
-  const bboxSize = [round3(xPos + xNeg), round3(halfExtent * 2), round3(halfExtent * 2)];
-  const bboxXOffset = round3((xPos - xNeg) / 2); // shift bounds toward hook
+  // X extent: hookAngel sdBox has internal PI/4 rotation + hookAngel's PI/4 = PI/2 total,
+  // so the rotated box half-size in world X = the box's X half-extent (no sqrt(2) factor).
+  // Type 0: center at hookXOffset + 1.033, box half-size 1.0 → max X = hookXOffset + 2.033
+  // Type 1: angel2 center at hookXOffset + 1.0, box half-size 2.0 → max X = hookXOffset + 3.0
+  const hookMaxX = merged.hookType > 0.5
+    ? Math.abs(merged.hookXOffset || 0) + 3.0
+    : Math.abs(merged.hookXOffset || 0) + 2.033;
+  const hookXExtent = hookMaxX + 0.3;
+  const xHalf = Math.max(0.75, hookXExtent);
+  const bboxSize = [xHalf * 2, halfExtent * 2, halfExtent * 2].map(round3);
   const resolution = bboxSize.map((s) => Math.round(s * density));
 
   const sdfCode = [
@@ -145,7 +146,7 @@ function buildSdf(formJson) {
     "",
   ].join("\n");
 
-  return { sdfCode, size: bboxSize, resolution, xOffset: bboxXOffset };
+  return { sdfCode, size: bboxSize, resolution };
 }
 
 // ── Download tracking ────────────────────────────────────────────────
@@ -193,8 +194,8 @@ async function main() {
     const json = JSON.parse(fs.readFileSync(f, "utf8"));
     const name = json.name || path.basename(f, ".json");
     const finalSizeMM = sizeMM ?? json.sizeMM ?? 30;
-    const { sdfCode, size, resolution, xOffset } = buildSdf(json);
-    return { name, sdfCode, size, resolution, xOffset, sizeMM: finalSizeMM, file: f };
+    const { sdfCode, size, resolution } = buildSdf(json);
+    return { name, sdfCode, size, resolution, sizeMM: finalSizeMM, file: f };
   });
 
   console.log(`\n🎄 Batch snowflake meshing: ${jobs.length} form(s)\n`);
@@ -256,7 +257,7 @@ async function main() {
       { timeout: 10000 }
     );
 
-    const meshParams = { size: job.size, resolution: job.resolution, sizeMM: job.sizeMM, xOffset: job.xOffset };
+    const meshParams = { size: job.size, resolution: job.resolution, sizeMM: job.sizeMM };
 
     // page.evaluate returns the total number of parts saved
     const result = await page.evaluate(
@@ -273,10 +274,9 @@ async function main() {
               window.ractive.set("download.resolution.z", params.resolution[2]);
 
               const dims = params.resolution;
-              const xOff = params.xOffset || 0;
               const bounds = [
-                [-params.size[0] / 2 + xOff, -params.size[1] / 2, -params.size[2] / 2],
-                [params.size[0] / 2 + xOff, params.size[1] / 2, params.size[2] / 2],
+                [-params.size[0] / 2, -params.size[1] / 2, -params.size[2] / 2],
+                [params.size[0] / 2, params.size[1] / 2, params.size[2] / 2],
               ];
 
               window.cubeMarch.setVolume(dims, bounds);

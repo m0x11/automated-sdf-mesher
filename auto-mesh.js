@@ -117,10 +117,9 @@ async function generateMesh(meshName) {
 
                     // Set up volume and exporter
                     const dims = params.resolution;
-                    const xOff = params.xOffset || 0;
                     const bounds = [
-                        [-params.size[0]/2 + xOff, -params.size[1]/2, -params.size[2]/2],
-                        [params.size[0]/2 + xOff, params.size[1]/2, params.size[2]/2]
+                        [-params.size[0]/2, -params.size[1]/2, -params.size[2]/2],
+                        [params.size[0]/2, params.size[1]/2, params.size[2]/2]
                     ];
 
                     window.cubeMarch.setVolume(dims, bounds);
