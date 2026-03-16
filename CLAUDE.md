@@ -46,7 +46,16 @@ python3 -m http.server 8000
 # Open http://localhost:8000
 ```
 
-### Automation
+### Batch Generation (Preferred)
+```bash
+# Engraved rings from dates (no SDF pre-generation needed)
+node batch-engrave.js --resolution 1100 08-14-1991
+
+# Snowflake pendants from form JSON
+node batch-snowflake.js ../flurry/forms/28/
+```
+
+### Legacy Automation (for pre-generated SDF folders)
 ```bash
 # With texture support (for MSDF text)
 node auto-mesh.js <sdf-folder-name>
