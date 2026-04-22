@@ -129,7 +129,19 @@ function buildSdf(formJson) {
     ? Math.abs(merged.hookXOffset || 0) + 3.0
     : Math.abs(merged.hookXOffset || 0) + 2.033;
   const hookXExtent = hookMaxX + 0.3;
-  const xHalf = Math.max(0.75, hookXExtent);
+  let xHalf = Math.max(0.75, hookXExtent);
+
+  // Bowl curvature increases X extent
+  const bowlAmount = merged.bowlAmount || 0;
+  if (bowlAmount > 0.001) {
+    const bowlMaxR = Math.max(
+      merged.outerEnabled > 0.5 ? merged.outerRadius + merged.outerThickness : 0,
+      merged.rayLength
+    ) + 0.5;
+    const sphereR = bowlMaxR / Math.max(bowlAmount, 0.001);
+    xHalf += sphereR - Math.sqrt(Math.max(sphereR * sphereR - bowlMaxR * bowlMaxR, 0));
+  }
+
   const bboxSize = [xHalf * 2, halfExtent * 2, halfExtent * 2].map(round3);
   const resolution = bboxSize.map((s) => Math.round(s * density));
 

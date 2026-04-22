@@ -16,17 +16,66 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-// Glyph index mapping
+// Glyph index mapping (must match setup-ephemeris-variable.js)
 const GLYPH_MAP = {
   '0': 0, '1': 1, '2': 2, '3': 3, '4': 4,
   '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
-  '·': 10
+  '·': 10,
+  'A': 11, 'B': 12, 'C': 13, 'D': 14, 'E': 15,
+  'F': 16, 'G': 17, 'J': 18, 'L': 19, 'M': 20,
+  'N': 21, 'O': 22, 'P': 23, 'R': 24, 'S': 25,
+  'T': 26, 'U': 27, 'V': 28, 'Y': 29
 };
+
+const MONTH_ABBREVS = [
+  'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+  'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+];
+
+const MONTH_NAMES = {
+  'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6,
+  'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
+};
+
+// Normalize any supported date format to { date: 'MM-DD-YYYY', dateFormat: 'mdy'|'dmy' }
+// Supported inputs:
+//   MM-DD-YYYY  (numeric)       → mdy
+//   Mon-DD-YYYY (e.g. Jul-24-2025) → mdy
+//   DD-Mon-YYYY (e.g. 20-Jan-2026) → dmy
+function normalizeDate(dateStr) {
+  // Already in MM-DD-YYYY format
+  const numericMatch = dateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (numericMatch) {
+    return { date: dateStr, dateFormat: 'mdy' };
+  }
+
+  // Mon-DD-YYYY (e.g. Jul-24-2025)
+  const mdyMatch = dateStr.match(/^([A-Za-z]{3})-(\d{1,2})-(\d{4})$/);
+  if (mdyMatch) {
+    const month = MONTH_NAMES[mdyMatch[1].toUpperCase()];
+    if (!month) throw new Error(`Unknown month: ${mdyMatch[1]}`);
+    const mm = String(month).padStart(2, '0');
+    const dd = mdyMatch[2].padStart(2, '0');
+    return { date: `${mm}-${dd}-${mdyMatch[3]}`, dateFormat: 'mdy' };
+  }
+
+  // DD-Mon-YYYY (e.g. 20-Jan-2026)
+  const dmyMatch = dateStr.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if (dmyMatch) {
+    const month = MONTH_NAMES[dmyMatch[2].toUpperCase()];
+    if (!month) throw new Error(`Unknown month: ${dmyMatch[2]}`);
+    const mm = String(month).padStart(2, '0');
+    const dd = dmyMatch[1].padStart(2, '0');
+    return { date: `${mm}-${dd}-${dmyMatch[3]}`, dateFormat: 'dmy' };
+  }
+
+  throw new Error(`Unrecognized date format: ${dateStr}. Expected MM-DD-YYYY, Mon-DD-YYYY, or DD-Mon-YYYY`);
+}
 
 function parseDateToUnix(dateStr) {
   const match = dateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
   if (!match) {
-    throw new Error(`Invalid date format: ${dateStr}. Expected mm-dd-yyyy`);
+    throw new Error(`Invalid date format: ${dateStr}. Expected mm-dd-yyyy (run through normalizeDate first)`);
   }
 
   const month = parseInt(match[1], 10);
@@ -40,18 +89,34 @@ function parseDateToUnix(dateStr) {
   return Math.floor(date.getTime() / 1000);
 }
 
-function formatDateWithDots(dateStr, dateFormat = 'mdy') {
+function formatDateForFilename(dateStr, dateFormat = 'mdy') {
   const match = dateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
   if (!match) throw new Error(`Invalid date format: ${dateStr}`);
 
-  const month = match[1].padStart(2, '0');
+  const monthNum = parseInt(match[1], 10);
+  const monthAbbrev = MONTH_ABBREVS[monthNum - 1].charAt(0) + MONTH_ABBREVS[monthNum - 1].slice(1).toLowerCase();
   const day = match[2].padStart(2, '0');
   const year = match[3];
 
   if (dateFormat === 'dmy') {
-    return `${day}·${month}·${year}`;
+    return `${day}-${monthAbbrev}-${year}`;
   }
-  return `${month}·${day}·${year}`;
+  return `${monthAbbrev}-${day}-${year}`;
+}
+
+function formatDateWithDots(dateStr, dateFormat = 'mdy') {
+  const match = dateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (!match) throw new Error(`Invalid date format: ${dateStr}`);
+
+  const monthNum = parseInt(match[1], 10);
+  const monthAbbrev = MONTH_ABBREVS[monthNum - 1];
+  const day = match[2].padStart(2, '0');
+  const year = match[3];
+
+  if (dateFormat === 'dmy') {
+    return `${day}·${monthAbbrev}·${year}`;
+  }
+  return `${monthAbbrev}·${day}·${year}`;
 }
 
 function dateToGlyphIndices(dateStr, dateFormat = 'mdy') {
@@ -66,8 +131,8 @@ function dateToGlyphIndices(dateStr, dateFormat = 'mdy') {
     }
   }
 
-  if (indices.length !== 10) {
-    throw new Error(`Expected 10 characters, got ${indices.length}: ${displayText}`);
+  if (indices.length !== 11) {
+    throw new Error(`Expected 11 characters, got ${indices.length}: ${displayText}`);
   }
 
   return indices;
@@ -80,21 +145,21 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
   const displayText = formatDateWithDots(dateStr, dateFormat);
   const glyphIndices = dateToGlyphIndices(dateStr, dateFormat);
 
-  // Build filename: ring(index)_date(date)_fmt(dmy)_size(size)_batch(batch)
+  // Build filename: ring(index)_date(Mon-DD-YYYY)_size(size)_batch(batch)
+  const fileDate = formatDateForFilename(dateStr, dateFormat);
   let filename;
   if (item.index !== undefined) {
     const parts = [`ring(${item.index})`];
-    parts.push(`date(${dateStr})`);
-    if (dateFormat === 'dmy') parts.push(`fmt(dmy)`);
+    parts.push(`date(${fileDate})`);
     if (item.size) parts.push(`size(${item.size})`);
     if (item.batch) parts.push(`batch(${item.batch})`);
     filename = parts.join('_');
   } else {
-    filename = `ephemeris-${dateStr.replace(/-/g, '')}${dateFormat === 'dmy' ? '-dmy' : ''}-${resolution}`;
+    filename = `ephemeris-${fileDate}-${resolution}`;
   }
 
   console.log(`\n📅 Processing: ${dateStr}${item.id ? ` (${item.id})` : ''}`);
-  console.log(`   Display: ${displayText} (${dateFormat === 'dmy' ? 'dd·mm·yyyy' : 'mm·dd·yyyy'})`);
+  console.log(`   Display: ${displayText} (${dateFormat === 'dmy' ? 'dd·MON·yyyy' : 'MON·dd·yyyy'})`);
   console.log(`   Unix: ${unixTime}`);
   console.log(`   Filename: ${filename}`);
 
@@ -148,7 +213,7 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
 
             window.cubeMarch.march({
               mapDistance: sdfCode,
-              textureDeclarations: 'uniform sampler2D uMsdfTexture;\nuniform float uTargetDate;\nuniform int uGlyphIndices[10];',
+              textureDeclarations: 'uniform sampler2D uMsdfTexture;\nuniform float uTargetDate;\nuniform int uGlyphIndices[11];',
               uniforms: {
                 uMsdfTexture: texture,
                 uTargetDate: parseFloat(unixTime),
@@ -199,10 +264,11 @@ Options:
   --resolution <n>  Resolution per axis (default: 600)
   --file <path>     Read dates from file (one per line)
   --json <path>     Read from JSON file with format:
-                    [{"id": "...", "engraving": "mm-dd-yyyy"}, ...]
+                    [{"id": "...", "engraving": "...", "size": "..."}, ...]
   --help            Show this help
 
-Date format: mm-dd-yyyy
+Date formats: MM-DD-YYYY, Mon-DD-YYYY, DD-Mon-YYYY
+  DD-Mon-YYYY dates are automatically engraved in DD·MON·YYYY order.
 
 Examples:
   node batch-engrave.js 07-04-1776
@@ -229,12 +295,13 @@ Setup (run once first):
       const jsonContent = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       jsonContent.forEach((entry, index) => {
         if (entry.engraving) {
+          const { date, dateFormat } = normalizeDate(entry.engraving);
           items.push({
-            date: entry.engraving,
+            date,
             id: entry.id || null,
             size: entry.size || null,
             batch: entry.batch || null,
-            dateFormat: entry.dateFormat || 'mdy',
+            dateFormat: entry.dateFormat || dateFormat,
             index: index + 1  // 1-based index
           });
         }
@@ -245,11 +312,13 @@ Setup (run once first):
       const dates = fileContent.split('\n')
         .map(line => line.trim())
         .filter(line => line && !line.startsWith('#'));
-      for (const date of dates) {
-        items.push({ date, id: null });
+      for (const raw of dates) {
+        const { date, dateFormat } = normalizeDate(raw);
+        items.push({ date, dateFormat, id: null });
       }
     } else if (!args[i].startsWith('--')) {
-      items.push({ date: args[i], id: null });
+      const { date, dateFormat } = normalizeDate(args[i]);
+      items.push({ date, dateFormat, id: null });
     }
   }
 
