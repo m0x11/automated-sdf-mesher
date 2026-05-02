@@ -5,13 +5,24 @@ var twgl = require("twgl.js");
 var Scene = function(width, height) {
     this.canvas = document.createElement('canvas');
 
-    this.gl = twgl.getWebGLContext(this.canvas);
+    // Use WebGL 2 for native float framebuffer support (eliminates
+    // lossy log2/pow float encoding that caused seam plane artifacts)
+    this.gl = this.canvas.getContext('webgl2');
+    if (!this.gl) {
+        console.warn('WebGL 2 not available, falling back to WebGL 1');
+        this.gl = twgl.getWebGLContext(this.canvas);
+    } else {
+        var ext = this.gl.getExtension('EXT_color_buffer_float');
+        if (!ext) {
+            console.warn('EXT_color_buffer_float not available, float readback may fail');
+        }
+    }
 
     var arrays = {
         position: [-1, -1, 0, 1, -1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, 1, 1, 0],
     };
     this.bufferInfo = twgl.createBufferInfoFromArrays(this.gl, arrays);
-    
+
     this.resize(width, height);
 }
 
@@ -44,6 +55,34 @@ Scene.prototype.createBuffer = function(width, height) {
     fbi.width = width;
     fbi.height = height;
     return fbi;
+};
+
+Scene.prototype.createFloatFramebuffer = function(width, height) {
+    var gl = this.gl;
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, height, 0, gl.RGBA, gl.FLOAT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    var framebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+
+    var status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+        console.error('Float framebuffer not complete:', status);
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    return {
+        framebuffer: framebuffer,
+        width: width,
+        height: height
+    };
 };
 
 Scene.prototype.createProgramInfo = function(vs, fs) {

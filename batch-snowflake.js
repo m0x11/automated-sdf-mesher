@@ -153,7 +153,15 @@ function buildSdf(formJson) {
     "",
     sdfBody,
     "float mapDistance(vec3 p) {",
-    "  return Form(p);",
+    "  float d = Form(p);",
+    "  // Prevent sheet artifacts at bbox faces: ramp SDF to positive near boundary",
+    "  float margin = 0.02;",
+    "  float bDist = min(min(",
+    "    min(p.x - boundsA.x, boundsB.x - p.x),",
+    "    min(p.y - boundsA.y, boundsB.y - p.y)),",
+    "    min(p.z - boundsA.z, boundsB.z - p.z));",
+    "  d = max(d, margin - bDist);",
+    "  return d;",
     "}",
     "",
   ].join("\n");
@@ -222,6 +230,7 @@ async function main() {
 
   const browser = await puppeteer.launch({
     headless: false,
+    protocolTimeout: 0,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",

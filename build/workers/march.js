@@ -340,14 +340,7 @@ var potential = function(cube, vert, dims, potentials) {
     return p;
 };
 
-var marchCubes = function(start, end, dims, bounds, potentials) {
-
-    var scale     = [0,0,0];
-    var shift     = [0,0,0];
-    for(var i=0; i<3; ++i) {
-        scale[i] = (bounds[1][i] - bounds[0][i]) / dims[i];
-        shift[i] = bounds[0][i];
-    }
+var marchCubes = function(start, end, dims, globalOrigin, globalScale, startVoxel, potentials) {
 
     var x = [];
     var vertices = []
@@ -394,7 +387,7 @@ var marchCubes = function(start, end, dims, bounds, potentials) {
               t = a / d;
           }
           for(var j=0; j<3; ++j) {
-              nv[j] = scale[j] * ((x[j] + p0[j]) + t * (p1[j] - p0[j])) + shift[j];
+              nv[j] = globalOrigin[j] + (startVoxel[j] + x[j] + p0[j] + t * (p1[j] - p0[j])) * globalScale[j];
           }
           vertices.push(nv);
       }
@@ -423,9 +416,11 @@ onmessage = function(e) {
         var start = message.data.start;
         var end = message.data.end;
         var dims = message.data.dims;
-        var bounds = message.data.bounds;
+        var globalOrigin = message.data.globalOrigin;
+        var globalScale = message.data.globalScale;
+        var startVoxel = message.data.startVoxel;
 
-        var result = marchCubes(start, end, dims, bounds, potentials);
+        var result = marchCubes(start, end, dims, globalOrigin, globalScale, startVoxel, potentials);
         postMessage(result);
     }
 };

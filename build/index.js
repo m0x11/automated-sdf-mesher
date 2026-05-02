@@ -8668,7 +8668,7 @@ if (typeof module !== "undefined" && module.exports) {
 
 },{}],5:[function(require,module,exports){
 module.exports = require("insert-css")("/* BASICS */\n\n.CodeMirror {\n  /* Set height, width, borders, and global font properties here */\n  font-family: monospace;\n  height: 300px;\n}\n\n/* PADDING */\n\n.CodeMirror-lines {\n  padding: 4px 0; /* Vertical padding around content */\n}\n.CodeMirror pre {\n  padding: 0 4px; /* Horizontal padding of content */\n}\n\n.CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {\n  background-color: white; /* The little square between H and V scrollbars */\n}\n\n/* GUTTER */\n\n.CodeMirror-gutters {\n  border-right: 1px solid #ddd;\n  background-color: #f7f7f7;\n  white-space: nowrap;\n}\n.CodeMirror-linenumbers {}\n.CodeMirror-linenumber {\n  padding: 0 3px 0 5px;\n  min-width: 20px;\n  text-align: right;\n  color: #999;\n  -moz-box-sizing: content-box;\n  box-sizing: content-box;\n}\n\n.CodeMirror-guttermarker { color: black; }\n.CodeMirror-guttermarker-subtle { color: #999; }\n\n/* CURSOR */\n\n.CodeMirror div.CodeMirror-cursor {\n  border-left: 1px solid black;\n}\n/* Shown when moving in bi-directional text */\n.CodeMirror div.CodeMirror-secondarycursor {\n  border-left: 1px solid silver;\n}\n.CodeMirror.cm-fat-cursor div.CodeMirror-cursor {\n  width: auto;\n  border: 0;\n  background: #7e7;\n}\n.CodeMirror.cm-fat-cursor div.CodeMirror-cursors {\n  z-index: 1;\n}\n\n.cm-animate-fat-cursor {\n  width: auto;\n  border: 0;\n  -webkit-animation: blink 1.06s steps(1) infinite;\n  -moz-animation: blink 1.06s steps(1) infinite;\n  animation: blink 1.06s steps(1) infinite;\n}\n@-moz-keyframes blink {\n  0% { background: #7e7; }\n  50% { background: none; }\n  100% { background: #7e7; }\n}\n@-webkit-keyframes blink {\n  0% { background: #7e7; }\n  50% { background: none; }\n  100% { background: #7e7; }\n}\n@keyframes blink {\n  0% { background: #7e7; }\n  50% { background: none; }\n  100% { background: #7e7; }\n}\n\n/* Can style cursor different in overwrite (non-insert) mode */\ndiv.CodeMirror-overwrite div.CodeMirror-cursor {}\n\n.cm-tab { display: inline-block; text-decoration: inherit; }\n\n.CodeMirror-ruler {\n  border-left: 1px solid #ccc;\n  position: absolute;\n}\n\n/* DEFAULT THEME */\n\n.cm-s-default .cm-keyword {color: #708;}\n.cm-s-default .cm-atom {color: #219;}\n.cm-s-default .cm-number {color: #164;}\n.cm-s-default .cm-def {color: #00f;}\n.cm-s-default .cm-variable,\n.cm-s-default .cm-punctuation,\n.cm-s-default .cm-property,\n.cm-s-default .cm-operator {}\n.cm-s-default .cm-variable-2 {color: #05a;}\n.cm-s-default .cm-variable-3 {color: #085;}\n.cm-s-default .cm-comment {color: #a50;}\n.cm-s-default .cm-string {color: #a11;}\n.cm-s-default .cm-string-2 {color: #f50;}\n.cm-s-default .cm-meta {color: #555;}\n.cm-s-default .cm-qualifier {color: #555;}\n.cm-s-default .cm-builtin {color: #30a;}\n.cm-s-default .cm-bracket {color: #997;}\n.cm-s-default .cm-tag {color: #170;}\n.cm-s-default .cm-attribute {color: #00c;}\n.cm-s-default .cm-header {color: blue;}\n.cm-s-default .cm-quote {color: #090;}\n.cm-s-default .cm-hr {color: #999;}\n.cm-s-default .cm-link {color: #00c;}\n\n.cm-negative {color: #d44;}\n.cm-positive {color: #292;}\n.cm-header, .cm-strong {font-weight: bold;}\n.cm-em {font-style: italic;}\n.cm-link {text-decoration: underline;}\n.cm-strikethrough {text-decoration: line-through;}\n\n.cm-s-default .cm-error {color: #f00;}\n.cm-invalidchar {color: #f00;}\n\n/* Default styles for common addons */\n\ndiv.CodeMirror span.CodeMirror-matchingbracket {color: #0f0;}\ndiv.CodeMirror span.CodeMirror-nonmatchingbracket {color: #f22;}\n.CodeMirror-matchingtag { background: rgba(255, 150, 0, .3); }\n.CodeMirror-activeline-background {background: #e8f2ff;}\n\n/* STOP */\n\n/* The rest of this file contains styles related to the mechanics of\n   the editor. You probably shouldn't touch them. */\n\n.CodeMirror {\n  line-height: 1;\n  position: relative;\n  overflow: hidden;\n  background: white;\n  color: black;\n}\n\n.CodeMirror-scroll {\n  overflow: scroll !important; /* Things will break if this is overridden */\n  /* 30px is the magic margin used to hide the element's real scrollbars */\n  /* See overflow: hidden in .CodeMirror */\n  margin-bottom: -30px; margin-right: -30px;\n  padding-bottom: 30px;\n  height: 100%;\n  outline: none; /* Prevent dragging from highlighting the element */\n  position: relative;\n  -moz-box-sizing: content-box;\n  box-sizing: content-box;\n}\n.CodeMirror-sizer {\n  position: relative;\n  border-right: 30px solid transparent;\n  -moz-box-sizing: content-box;\n  box-sizing: content-box;\n}\n\n/* The fake, visible scrollbars. Used to force redraw during scrolling\n   before actuall scrolling happens, thus preventing shaking and\n   flickering artifacts. */\n.CodeMirror-vscrollbar, .CodeMirror-hscrollbar, .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {\n  position: absolute;\n  z-index: 6;\n  display: none;\n}\n.CodeMirror-vscrollbar {\n  right: 0; top: 0;\n  overflow-x: hidden;\n  overflow-y: scroll;\n}\n.CodeMirror-hscrollbar {\n  bottom: 0; left: 0;\n  overflow-y: hidden;\n  overflow-x: scroll;\n}\n.CodeMirror-scrollbar-filler {\n  right: 0; bottom: 0;\n}\n.CodeMirror-gutter-filler {\n  left: 0; bottom: 0;\n}\n\n.CodeMirror-gutters {\n  position: absolute; left: 0; top: 0;\n  z-index: 3;\n}\n.CodeMirror-gutter {\n  white-space: normal;\n  height: 100%;\n  -moz-box-sizing: content-box;\n  box-sizing: content-box;\n  display: inline-block;\n  margin-bottom: -30px;\n  /* Hack to make IE7 behave */\n  *zoom:1;\n  *display:inline;\n}\n.CodeMirror-gutter-wrapper {\n  position: absolute;\n  z-index: 4;\n  height: 100%;\n}\n.CodeMirror-gutter-elt {\n  position: absolute;\n  cursor: default;\n  z-index: 4;\n}\n\n.CodeMirror-lines {\n  cursor: text;\n  min-height: 1px; /* prevents collapsing before first draw */\n}\n.CodeMirror pre {\n  /* Reset some styles that the rest of the page might have set */\n  -moz-border-radius: 0; -webkit-border-radius: 0; border-radius: 0;\n  border-width: 0;\n  background: transparent;\n  font-family: inherit;\n  font-size: inherit;\n  margin: 0;\n  white-space: pre;\n  word-wrap: normal;\n  line-height: inherit;\n  color: inherit;\n  z-index: 2;\n  position: relative;\n  overflow: visible;\n}\n.CodeMirror-wrap pre {\n  word-wrap: break-word;\n  white-space: pre-wrap;\n  word-break: normal;\n}\n\n.CodeMirror-linebackground {\n  position: absolute;\n  left: 0; right: 0; top: 0; bottom: 0;\n  z-index: 0;\n}\n\n.CodeMirror-linewidget {\n  position: relative;\n  z-index: 2;\n  overflow: auto;\n}\n\n.CodeMirror-widget {}\n\n.CodeMirror-measure {\n  position: absolute;\n  width: 100%;\n  height: 0;\n  overflow: hidden;\n  visibility: hidden;\n}\n.CodeMirror-measure pre { position: static; }\n\n.CodeMirror div.CodeMirror-cursor {\n  position: absolute;\n  border-right: none;\n  width: 0;\n}\n\ndiv.CodeMirror-cursors {\n  visibility: hidden;\n  position: relative;\n  z-index: 3;\n}\n.CodeMirror-focused div.CodeMirror-cursors {\n  visibility: visible;\n}\n\n.CodeMirror-selected { background: #d9d9d9; }\n.CodeMirror-focused .CodeMirror-selected { background: #d7d4f0; }\n.CodeMirror-crosshair { cursor: crosshair; }\n\n.cm-searching {\n  background: #ffa;\n  background: rgba(255, 255, 0, .4);\n}\n\n/* IE7 hack to prevent it from returning funny offsetTops on the spans */\n.CodeMirror span { *vertical-align: text-bottom; }\n\n/* Used to force a border model for a node */\n.cm-force-border { padding-right: .1px; }\n\n@media print {\n  /* Hide the cursor when printing */\n  .CodeMirror div.CodeMirror-cursors {\n    visibility: hidden;\n  }\n}\n\n/* See issue #2901 */\n.cm-tab-wrap-hack:after { content: ''; }\n\n/* Help users use markselection to safely style text background */\nspan.CodeMirror-selectedtext { background: none; }\n")
-},{"insert-css":11}],6:[function(require,module,exports){
+},{"insert-css":10}],6:[function(require,module,exports){
 module.exports = function(CodeMirror) {
   CodeMirror.defineMode("glsl", function(config, parserConfig) {
     var indentUnit = config.indentUnit,
@@ -8953,27 +8953,13 @@ Editor.prototype.setValue = function(str) {
   return this.editor.setValue(str)
 }
 
-},{"./glsl":6,"codemirror":1,"element-size":2,"events/":3,"inherits":10,"xtend":17}],8:[function(require,module,exports){
+},{"./glsl":6,"codemirror":1,"element-size":2,"events/":3,"inherits":9,"xtend":16}],8:[function(require,module,exports){
 var css = require('insert-css')
 
 
 module.exports = css("/*\n\n    Name:       Paraíso (Dark)\n    Author:     Jan T. Sott\n\n    Color scheme by Jan T. Sott (https://github.com/idleberg/Paraiso-CodeMirror)\n    Inspired by the art of Rubens LP (http://www.rubenslp.com.br)\n\n*/\n\n.cm-s-paraiso-dark.CodeMirror {background: #2f1e2e; color: #b9b6b0; line-height: 1.60em; font-size: 14px;}\n.cm-s-paraiso-dark div.CodeMirror-selected {background: #41323f !important;}\n.cm-s-paraiso-dark .CodeMirror-gutters {background: #2f1e2e; border-right: 0px;}\n.cm-s-paraiso-dark .CodeMirror-guttermarker { color: #ef6155; }\n.cm-s-paraiso-dark .CodeMirror-guttermarker-subtle { color: #776e71; }\n.cm-s-paraiso-dark .CodeMirror-linenumber {color: #776e71;}\n.cm-s-paraiso-dark .CodeMirror-cursor {border-left: 1px solid #8d8687 !important;}\n\n.cm-s-paraiso-dark span.cm-comment {color: #e96ba8;}\n.cm-s-paraiso-dark span.cm-atom {color: #815ba4;}\n.cm-s-paraiso-dark span.cm-number {color: #815ba4;}\n\n.cm-s-paraiso-dark span.cm-property, .cm-s-paraiso-dark span.cm-attribute {color: #48b685;}\n.cm-s-paraiso-dark span.cm-keyword {color: #ef6155;}\n.cm-s-paraiso-dark span.cm-string {color: #fec418;}\n.cm-s-paraiso-dark span.cm-number {color: #fec418;}\n.cm-s-paraiso-dark span.cm-builtin {color: #48b685;}\n\n.cm-s-paraiso-dark span.cm-variable {color: #48b685;}\n.cm-s-paraiso-dark span.cm-variable-2 {color: #06b6ef;}\n.cm-s-paraiso-dark span.cm-def {color: #f99b15;}\n.cm-s-paraiso-dark span.cm-bracket {color: #b9b6b0;}\n.cm-s-paraiso-dark span.cm-tag {color: #ef6155;}\n.cm-s-paraiso-dark span.cm-link {color: #815ba4;}\n.cm-s-paraiso-dark span.cm-comment {color: #06b6ef;}\n.cm-s-paraiso-dark span.cm-error {background: #ef6155; color: #8d8687;}\n\n.cm-s-paraiso-dark .CodeMirror-activeline-background {background: #4D344A !important;}\n.cm-s-paraiso-dark .CodeMirror-matchingbracket { text-decoration: underline; color: white !important;}\n")
 
-},{"insert-css":11}],9:[function(require,module,exports){
-module.exports = decodeFloat
-
-var UINT8_VIEW = new Uint8Array(4)
-var FLOAT_VIEW = new Float32Array(UINT8_VIEW.buffer)
-
-function decodeFloat(x, y, z, w) {
-  UINT8_VIEW[0] = w
-  UINT8_VIEW[1] = z
-  UINT8_VIEW[2] = y
-  UINT8_VIEW[3] = x
-  return FLOAT_VIEW[0]
-}
-
-},{}],10:[function(require,module,exports){
+},{"insert-css":10}],9:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -9002,7 +8988,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],11:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 var inserted = {};
 
 module.exports = function (css, options) {
@@ -9026,7 +9012,7 @@ module.exports = function (css, options) {
     }
 };
 
-},{}],12:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 (function (global){(function (){
 /**
  * Lodash (Custom Build) <https://lodash.com/>
@@ -10878,7 +10864,7 @@ function stubFalse() {
 module.exports = isEqual;
 
 }).call(this)}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],13:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 /*
 	Ractive.js v0.7.3
 	Sat Apr 25 2015 13:52:38 GMT-0400 (EDT) - commit da40f81c660ba2f09c45a09a9c20fdd34ee36d80
@@ -27499,7 +27485,7 @@ module.exports = isEqual;
 }));
 
 
-},{}],14:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 /**
  * @author Eberhard Graether / http://egraether.com/
  * @author Mark Lundin / http://mark-lundin.com
@@ -28118,7 +28104,7 @@ function preventEvent( event ) { event.preventDefault(); }
 
 Trackball.prototype = Object.create(THREE.EventDispatcher.prototype);
 
-},{"three":15}],15:[function(require,module,exports){
+},{"three":14}],14:[function(require,module,exports){
 var self = self || {};// File:src/Three.js
 
 /**
@@ -64307,7 +64293,7 @@ if (typeof exports !== 'undefined') {
   this['THREE'] = THREE;
 }
 
-},{}],16:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 /**
  * @license twgl.js 0.0.42 Copyright (c) 2015, Gregg Tavares All Rights Reserved.
  * Available via the MIT license.
@@ -71556,7 +71542,7 @@ define("build/js/twgl-includer-full", function(){});
     return notrequirebecasebrowserifymessesup('main');
 }));
 
-},{}],17:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 module.exports = extend
 
 var hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -71577,7 +71563,7 @@ function extend() {
     return target
 }
 
-},{}],18:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 var ControlSection = require('./control-section.js').ControlSection;
 
 var BoundingControls = function(renderer, ractive) {
@@ -71628,7 +71614,7 @@ BoundingControls.prototype.toggleVisibilty = function(visible) {
 
 module.exports = BoundingControls;
 
-},{"./control-section.js":19}],19:[function(require,module,exports){
+},{"./control-section.js":18}],18:[function(require,module,exports){
 
 var ControlSection = function(ractive) {
     this.ractive = ractive;
@@ -71779,7 +71765,7 @@ ProcessControls.prototype.formatDuration = function(start, end) {
 module.exports.ControlSection = ControlSection;
 module.exports.ProcessControls = ProcessControls;
 
-},{}],20:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 var ProcessControls = require('./control-section.js').ProcessControls;
 
 var DownloadControls = function(cubeMarch, exporter, editor, ractive) {
@@ -71849,7 +71835,7 @@ DownloadControls.prototype.doneMessage = function() {
 
 module.exports = DownloadControls;
 
-},{"./control-section.js":19}],21:[function(require,module,exports){
+},{"./control-section.js":18}],20:[function(require,module,exports){
 var isEqual = require('lodash.isequal');
 
 var EditorControls = function(editor, ractive) {
@@ -71978,7 +71964,7 @@ EditorControls.prototype = {
 
 module.exports = EditorControls;
 
-},{"lodash.isequal":12}],22:[function(require,module,exports){
+},{"lodash.isequal":11}],21:[function(require,module,exports){
 var ProcessControls = require('./control-section.js').ProcessControls;
 
 var PreviewControls = function(cubeMarch, renderer, editor, ractive) {
@@ -72046,21 +72032,20 @@ PreviewControls.prototype.toggleWireframe = function(value) {
 
 module.exports = PreviewControls;
 
-},{"./control-section.js":19}],23:[function(require,module,exports){
+},{"./control-section.js":18}],22:[function(require,module,exports){
 "use strict";
 
 var twgl = require("twgl.js");
 
 var Scene = require('./scene');
 var WorkerPool = require('./worker-pool');
-var unpackFloat = require("glsl-read-float");
 var splitVolume = require("./split-volume");
 
 var CubeMarch = function() {
     this.scene = new Scene(1, 1);
 
-    this.shaderVert = "#define GLSLIFY 1\nattribute vec3 position;\n\nvoid main() {\n    gl_Position = vec4(position, 1.0);\n}\n";
-    this.calcPotentialsFrag = "precision mediump float;\n#define GLSLIFY 1\n\nint coordToIndex(vec2 coord, vec2 size) {\n    return int(\n        floor(coord.x) + (floor(coord.y) * size.x)\n    );\n}\n\n#define FLOAT_MAX  1.70141184e38\n#define FLOAT_MIN  1.17549435e-38\n\nlowp vec4 encode_float_1604150559(highp float v) {\n  highp float av = abs(v);\n\n  //Handle special cases\n  if(av < FLOAT_MIN) {\n    return vec4(0.0, 0.0, 0.0, 0.0);\n  } else if(v > FLOAT_MAX) {\n    return vec4(127.0, 128.0, 0.0, 0.0) / 255.0;\n  } else if(v < -FLOAT_MAX) {\n    return vec4(255.0, 128.0, 0.0, 0.0) / 255.0;\n  }\n\n  highp vec4 c = vec4(0,0,0,0);\n\n  //Compute exponent and mantissa\n  highp float e = floor(log2(av));\n  highp float m = av * pow(2.0, -e) - 1.0;\n  \n  //Unpack mantissa\n  c[1] = floor(128.0 * m);\n  m -= c[1] / 128.0;\n  c[2] = floor(32768.0 * m);\n  m -= c[2] / 32768.0;\n  c[3] = floor(8388608.0 * m);\n  \n  //Unpack exponent\n  highp float ebias = e + 127.0;\n  c[0] = floor(ebias / 2.0);\n  ebias -= c[0] * 2.0;\n  c[1] += floor(ebias) * 128.0; \n\n  //Unpack sign bit\n  c[0] += 128.0 * step(0.0, -v);\n\n  //Scale back to range\n  return c / 255.0;\n}\n\nuniform vec2 resolution;\n\nuniform vec3 boundsA;\nuniform vec3 boundsB;\nuniform vec3 dims;\nuniform float time;\n\n// Custom texture uniforms (inserted at runtime)\nINSERT_TEXTURE_DECLARATIONS\n\nvec3 vertDims = dims + vec3(1);\nvec3 scale = (boundsB - boundsA) / dims;\nvec3 shift = boundsA;\n\nINSERT_MAP_DISTANCE\n\nvec3 vertFromIndex(float index) {\n    vec3 vert = vec3(0);\n    vert.x = mod(index, vertDims.x);\n    vert.y = mod(floor(index / vertDims.x), vertDims.y);\n    vert.z = mod(floor(index / (vertDims.y * vertDims.x)), vertDims.z);\n    return scale * vert + shift; \n}\n\nvoid main() {\n\n    float vertIndex = float(coordToIndex(gl_FragCoord.xy, resolution.xy));\n\n    if (vertIndex >= vertDims.x * vertDims.y * vertDims.z) {\n        gl_FragColor = vec4(1);\n        return;\n    }\n\n    vec3 vert = vertFromIndex(vertIndex);\n    float potential = mapDistance(vert);\n    gl_FragColor = encode_float_1604150559(potential);\n}\n";
+    this.shaderVert = '#version 300 es\n' + "#define GLSLIFY 1\nin vec3 position;\n\nvoid main() {\n    gl_Position = vec4(position, 1.0);\n}\n";
+    this.calcPotentialsFrag = "precision highp float;\nprecision highp int;\n#define GLSLIFY 1\n\nint coordToIndex(vec2 coord, vec2 size) {\n    return int(\n        floor(coord.x) + (floor(coord.y) * size.x)\n    );\n}\n\nuniform vec2 resolution;\n\nuniform vec3 dims;\nuniform float time;\nuniform vec3 globalOrigin;\nuniform vec3 globalScale;\nuniform vec3 startVoxel;\n\n// Custom texture uniforms (inserted at runtime)\nINSERT_TEXTURE_DECLARATIONS\n\nout vec4 fragColor;\n\nINSERT_MAP_DISTANCE\n\nvec3 vertFromIndex(int index) {\n    int vx = int(dims.x) + 1;\n    int vy = int(dims.y) + 1;\n    int vxy = vx * vy;\n    int iz = index / vxy;\n    int irem = index - iz * vxy;\n    int iy = irem / vx;\n    int ix = irem - iy * vx;\n    return globalOrigin + (startVoxel + vec3(float(ix), float(iy), float(iz))) * globalScale;\n}\n\nvoid main() {\n\n    int vertIndex = coordToIndex(gl_FragCoord.xy, resolution.xy);\n    vec3 vertDims = dims + vec3(1);\n\n    if (float(vertIndex) >= vertDims.x * vertDims.y * vertDims.z) {\n        fragColor = vec4(1.0e10, 0.0, 0.0, 1.0);\n        return;\n    }\n\n    vec3 vert = vertFromIndex(vertIndex);\n    float potential = mapDistance(vert);\n    // Guard against NaN/Inf: NaN != NaN in IEEE 754\n    if (potential != potential || potential > 1.0e10 || potential < -1.0e10) {\n        potential = 1.0e10;\n    }\n    fragColor = vec4(potential, 0.0, 0.0, 1.0);\n}\n";
 
     this.startTime = new Date().getTime();
     this.numWorkers = 4;
@@ -72086,6 +72071,9 @@ CubeMarch.prototype.setVolume = function(dims, bounds) {
     }, 0);
     scene.resize(newSize, newSize);
 
+    // Create float framebuffer for lossless SDF potential readback
+    this.floatFb = scene.createFloatFramebuffer(newSize, newSize);
+
     this.totalCubes = dims[0] * dims[1] * dims[2];
 }
 
@@ -72107,25 +72095,28 @@ CubeMarch.prototype.calcPotentials = function(volumeIndex, pixels, uniforms) {
         blockPotentials.push(potentials);
     }
 
-    var r, g, b, a;
     var value;
     var i;
     var bl;
     var gl = this.scene.gl;
 
-    uniforms.boundsA = volume.bounds[0];
-    uniforms.boundsB = volume.bounds[1];
     uniforms.dims = volume.dims;
+    uniforms.globalOrigin = volume.globalOrigin;
+    uniforms.globalScale = volume.globalScale;
+    uniforms.startVoxel = volume.startVoxel;
 
+    // Render to float framebuffer for lossless SDF readback
     this.scene.draw({
         program: this.potentialsProg,
-        uniforms: uniforms
+        uniforms: uniforms,
+        output: this.floatFb
     });
 
+    // Read back float potentials directly (no encode/decode roundtrip)
     gl.readPixels(
         0, 0,
-        gl.drawingBufferWidth, gl.drawingBufferHeight,
-        gl.RGBA, gl.UNSIGNED_BYTE,
+        this.floatFb.width, this.floatFb.height,
+        gl.RGBA, gl.FLOAT,
         pixels
     );
 
@@ -72133,12 +72124,8 @@ CubeMarch.prototype.calcPotentials = function(volumeIndex, pixels, uniforms) {
     var containsGeometry = false;
 
     for (i = 0; i < volume.vertexCount; i++) {
-        r = pixels[i * 4 + 0];
-        g = pixels[i * 4 + 1];
-        b = pixels[i * 4 + 2];
-        a = pixels[i * 4 + 3];
-        value = unpackFloat(r, g, b, a);
-        if ( ! containsGeometry && previousValue && (value > 0) !== (previousValue > 0)) {
+        value = pixels[i * 4]; // R channel contains the SDF potential directly
+        if ( ! containsGeometry && previousValue !== undefined && (value > 0) !== (previousValue > 0)) {
             containsGeometry = true;
         }
         previousValue = value;
@@ -72179,7 +72166,9 @@ CubeMarch.prototype.marchVolume = function(config) {
                 start: start,
                 end: end,
                 dims: volume.dims,
-                bounds: volume.bounds
+                globalOrigin: volume.globalOrigin,
+                globalScale: volume.globalScale,
+                startVoxel: volume.startVoxel
             }
         });
     }
@@ -72215,6 +72204,11 @@ CubeMarch.prototype.march = function(config) {
         .replace('INSERT_TEXTURE_DECLARATIONS', textureDeclarations)
         .replace('INSERT_MAP_DISTANCE', config.mapDistance);
 
+    // Upgrade to GLSL ES 3.0 for guaranteed 32-bit integer arithmetic
+    shaderCode = '#version 300 es\n' + shaderCode;
+    // Replace texture2D with texture (ES 3.0 syntax)
+    shaderCode = shaderCode.replace(/texture2D\(/g, 'texture(');
+
     this.potentialsProg = this.scene.createProgramInfo(
         this.shaderVert,
         shaderCode
@@ -72229,8 +72223,8 @@ CubeMarch.prototype.march = function(config) {
         Object.assign(uniforms, config.uniforms);
     }
 
-    var pixelCount = gl.drawingBufferWidth * gl.drawingBufferHeight;
-    var pixels = new Uint8Array(pixelCount * 4);
+    var pixelCount = this.floatFb.width * this.floatFb.height;
+    var pixels = new Float32Array(pixelCount * 4);
 
     var blockPotentialBuffers;
     var volumeIndex = 0;
@@ -72272,7 +72266,7 @@ CubeMarch.prototype.march = function(config) {
 
 module.exports = CubeMarch;
 
-},{"./scene":26,"./split-volume":27,"./worker-pool":30,"glsl-read-float":9,"twgl.js":16}],24:[function(require,module,exports){
+},{"./scene":25,"./split-volume":26,"./worker-pool":29,"twgl.js":15}],23:[function(require,module,exports){
 "use strict";
 
 var twgl = require("twgl.js");
@@ -72411,7 +72405,7 @@ editorControls.init();
 window.editor = editor;
 window.ractive = ractive;
 
-},{"./controls/bounding-controls.js":18,"./controls/download-controls.js":20,"./controls/editor-controls.js":21,"./controls/preview-controls.js":22,"./cubemarch":23,"./renderer":25,"./stl-exporter":28,"glsl-editor":7,"glsl-editor/css":5,"glsl-editor/theme":8,"ractive":13,"twgl.js":16}],25:[function(require,module,exports){
+},{"./controls/bounding-controls.js":17,"./controls/download-controls.js":19,"./controls/editor-controls.js":20,"./controls/preview-controls.js":21,"./cubemarch":22,"./renderer":24,"./stl-exporter":27,"glsl-editor":7,"glsl-editor/css":5,"glsl-editor/theme":8,"ractive":12,"twgl.js":15}],24:[function(require,module,exports){
 "use strict";
 
 var THREE = require('three');
@@ -72568,7 +72562,7 @@ Renderer.prototype = {
 
 module.exports = Renderer;
 
-},{"three":15,"three.trackball":14}],26:[function(require,module,exports){
+},{"three":14,"three.trackball":13}],25:[function(require,module,exports){
 "use strict";
 
 var twgl = require("twgl.js");
@@ -72576,13 +72570,24 @@ var twgl = require("twgl.js");
 var Scene = function(width, height) {
     this.canvas = document.createElement('canvas');
 
-    this.gl = twgl.getWebGLContext(this.canvas);
+    // Use WebGL 2 for native float framebuffer support (eliminates
+    // lossy log2/pow float encoding that caused seam plane artifacts)
+    this.gl = this.canvas.getContext('webgl2');
+    if (!this.gl) {
+        console.warn('WebGL 2 not available, falling back to WebGL 1');
+        this.gl = twgl.getWebGLContext(this.canvas);
+    } else {
+        var ext = this.gl.getExtension('EXT_color_buffer_float');
+        if (!ext) {
+            console.warn('EXT_color_buffer_float not available, float readback may fail');
+        }
+    }
 
     var arrays = {
         position: [-1, -1, 0, 1, -1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, 1, 1, 0],
     };
     this.bufferInfo = twgl.createBufferInfoFromArrays(this.gl, arrays);
-    
+
     this.resize(width, height);
 }
 
@@ -72615,6 +72620,34 @@ Scene.prototype.createBuffer = function(width, height) {
     fbi.width = width;
     fbi.height = height;
     return fbi;
+};
+
+Scene.prototype.createFloatFramebuffer = function(width, height) {
+    var gl = this.gl;
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, height, 0, gl.RGBA, gl.FLOAT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    var framebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+
+    var status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+        console.error('Float framebuffer not complete:', status);
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    return {
+        framebuffer: framebuffer,
+        width: width,
+        height: height
+    };
 };
 
 Scene.prototype.createProgramInfo = function(vs, fs) {
@@ -72668,7 +72701,7 @@ Scene.prototype.draw = function(spec) {
 
 module.exports = Scene;
 
-},{"twgl.js":16}],27:[function(require,module,exports){
+},{"twgl.js":15}],26:[function(require,module,exports){
 
 var maxDimension = function(dims) {
     if (dims[0] > dims[1]) {
@@ -72681,97 +72714,53 @@ var maxDimension = function(dims) {
     return 2;
 };
 
-var subVectors = function(a, b) {
-    var c = [];
-    c[0] = a[0] - b[0];
-    c[1] = a[1] - b[1];
-    c[2] = a[2] - b[2];
-    return c;
-};
-
-var addVectors = function(a, b) {
-    var c = [];
-    c[0] = a[0] + b[0];
-    c[1] = a[1] + b[1];
-    c[2] = a[2] + b[2];
-    return c;
-};
-
-var multiplyVectors = function(a, b) {
-    var c = [];
-    c[0] = a[0] * b[0];
-    c[1] = a[1] * b[1];
-    c[2] = a[2] * b[2];
-    return c;
-};
-
-var ceilVector = function(a) {
-    var c = [];
-    c[0] = Math.ceil(a[0]);
-    c[1] = Math.ceil(a[1]);
-    c[2] = Math.ceil(a[2]);
-    return c;
-};
-
-var volumeFits = function(volume, maxSize) {
-    var vertexDims = addVectors(volume.dims, [1, 1, 1]);
-    var vertexCount = vertexDims[0] * vertexDims[1] * vertexDims[2];
-    var maxVerts = Math.pow(maxSize, 2);
-    return vertexCount < maxVerts;
-}
-
 var splitVolume = function(volume, maxSize) {
-    var volumes = [];
-    var bounds = volume.bounds;
-    var dims = volume.dims;
-
-    if ( ! volumeFits(volume, maxSize)) {
-        var size = subVectors(bounds[1], bounds[0]);
-        var slice = [1, 1, 1];
-        slice[maxDimension(dims)] = 0.5;
-        size = multiplyVectors(size, slice);
-
-        volumes.push({
-            bounds: [
-                bounds[0],
-                addVectors(bounds[0], size)
-            ],
-            dims: ceilVector(multiplyVectors(dims, slice))
-        });
-        volumes.push({
-            bounds: [
-                subVectors(bounds[1], size),
-                bounds[1]
-            ],
-            dims: ceilVector(multiplyVectors(dims, slice))
-        });
-    } else {
-        volumes.push({
-            bounds: bounds,
-            dims: dims
-        });
+    var maxVerts = Math.pow(maxSize, 2);
+    var totalDims = volume.dims;
+    var origin = volume.bounds[0];
+    var scale = [];
+    for (var i = 0; i < 3; i++) {
+        scale[i] = (volume.bounds[1][i] - volume.bounds[0][i]) / totalDims[i];
     }
 
-    volumes = volumes.reduce(function(vs, volume) {
-        if (volumeFits(volume, maxSize)) {
-            return vs.concat(volume);
+    // Recursively split using integer voxel index ranges.
+    // Bounds are only computed at leaf level from origin + index * scale,
+    // avoiding floating point drift through recursive subdivision.
+    function splitRange(start, end) {
+        var dims = [end[0] - start[0], end[1] - start[1], end[2] - start[2]];
+        var vertexCount = (dims[0] + 1) * (dims[1] + 1) * (dims[2] + 1);
+
+        if (vertexCount < maxVerts) {
+            var vertexDims = [dims[0] + 1, dims[1] + 1, dims[2] + 1];
+            return [{
+                dims: dims,
+                globalOrigin: origin,
+                globalScale: scale,
+                startVoxel: start.slice(),
+                vertexDims: vertexDims,
+                vertexCount: vertexCount,
+                size: Math.ceil(Math.sqrt(vertexCount))
+            }];
         }
-        return vs.concat(splitVolume(volume, maxSize));
-    }, []);
 
-    volumes = volumes.map(function(volume) {
-        volume.vertexDims = addVectors(volume.dims, [1, 1, 1]);
-        volume.vertexCount = volume.vertexDims[0] * volume.vertexDims[1] * volume.vertexDims[2];
-        volume.size = Math.ceil(Math.sqrt(volume.vertexCount));
-        return volume;
-    });
+        var axis = maxDimension(dims);
+        var splitAt = start[axis] + Math.ceil(dims[axis] / 2);
 
-    return volumes;
+        var mid1 = end.slice();
+        mid1[axis] = splitAt;
+
+        var mid2 = start.slice();
+        mid2[axis] = splitAt;
+
+        return splitRange(start, mid1).concat(splitRange(mid2, end));
+    }
+
+    return splitRange([0, 0, 0], totalDims.slice());
 }
 
 module.exports = splitVolume;
 
-},{}],28:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 "use strict";
 
 var STLWriter = require("./stl-writer");
@@ -72782,7 +72771,7 @@ var STLExporter = function() {
 
 STLExporter.prototype = {
 
-    maxVerts: 6000000,
+    maxVerts: 200000000,
 
     startModel: function(filename) {
         this.part = -1;
@@ -72842,7 +72831,7 @@ STLExporter.prototype = {
 
 module.exports = STLExporter;
 
-},{"./stl-writer":29}],29:[function(require,module,exports){
+},{"./stl-writer":28}],28:[function(require,module,exports){
 
 // Cribbed from http://buildaweso.me/project/2014/10/26/writing-binary-stl-files-from-threejs-objects
 
@@ -72923,7 +72912,7 @@ STLWriter.prototype = {
 
 module.exports = STLWriter;
 
-},{"filesaver.js":4}],30:[function(require,module,exports){
+},{"filesaver.js":4}],29:[function(require,module,exports){
 
 var WorkerPool = function(filename, n) {
     this.queue = [];
@@ -73011,4 +73000,4 @@ WorkerPool.prototype.process = function(worker, job, done) {
 
 module.exports = WorkerPool;
 
-},{}]},{},[24]);
+},{}]},{},[23]);

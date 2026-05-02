@@ -4,13 +4,12 @@ var twgl = require("twgl.js");
 var glslify = require("glslify");
 var Scene = require('./scene');
 var WorkerPool = require('./worker-pool');
-var unpackFloat = require("glsl-read-float");
 var splitVolume = require("./split-volume");
 
 var CubeMarch = function() {
     this.scene = new Scene(1, 1);
 
-    this.shaderVert = glslify('./shaders/shader.vert');
+    this.shaderVert = '#version 300 es\n' + glslify('./shaders/shader.vert');
     this.calcPotentialsFrag = glslify('./shaders/calc-potentials.frag');
 
     this.startTime = new Date().getTime();
@@ -37,6 +36,9 @@ CubeMarch.prototype.setVolume = function(dims, bounds) {
     }, 0);
     scene.resize(newSize, newSize);
 
+    // Create float framebuffer for lossless SDF potential readback
+    this.floatFb = scene.createFloatFramebuffer(newSize, newSize);
+
     this.totalCubes = dims[0] * dims[1] * dims[2];
 }
 
@@ -58,25 +60,28 @@ CubeMarch.prototype.calcPotentials = function(volumeIndex, pixels, uniforms) {
         blockPotentials.push(potentials);
     }
 
-    var r, g, b, a;
     var value;
     var i;
     var bl;
     var gl = this.scene.gl;
 
-    uniforms.boundsA = volume.bounds[0];
-    uniforms.boundsB = volume.bounds[1];
     uniforms.dims = volume.dims;
+    uniforms.globalOrigin = volume.globalOrigin;
+    uniforms.globalScale = volume.globalScale;
+    uniforms.startVoxel = volume.startVoxel;
 
+    // Render to float framebuffer for lossless SDF readback
     this.scene.draw({
         program: this.potentialsProg,
-        uniforms: uniforms
+        uniforms: uniforms,
+        output: this.floatFb
     });
 
+    // Read back float potentials directly (no encode/decode roundtrip)
     gl.readPixels(
         0, 0,
-        gl.drawingBufferWidth, gl.drawingBufferHeight,
-        gl.RGBA, gl.UNSIGNED_BYTE,
+        this.floatFb.width, this.floatFb.height,
+        gl.RGBA, gl.FLOAT,
         pixels
     );
 
@@ -84,12 +89,8 @@ CubeMarch.prototype.calcPotentials = function(volumeIndex, pixels, uniforms) {
     var containsGeometry = false;
 
     for (i = 0; i < volume.vertexCount; i++) {
-        r = pixels[i * 4 + 0];
-        g = pixels[i * 4 + 1];
-        b = pixels[i * 4 + 2];
-        a = pixels[i * 4 + 3];
-        value = unpackFloat(r, g, b, a);
-        if ( ! containsGeometry && previousValue && (value > 0) !== (previousValue > 0)) {
+        value = pixels[i * 4]; // R channel contains the SDF potential directly
+        if ( ! containsGeometry && previousValue !== undefined && (value > 0) !== (previousValue > 0)) {
             containsGeometry = true;
         }
         previousValue = value;
@@ -130,7 +131,9 @@ CubeMarch.prototype.marchVolume = function(config) {
                 start: start,
                 end: end,
                 dims: volume.dims,
-                bounds: volume.bounds
+                globalOrigin: volume.globalOrigin,
+                globalScale: volume.globalScale,
+                startVoxel: volume.startVoxel
             }
         });
     }
@@ -166,6 +169,11 @@ CubeMarch.prototype.march = function(config) {
         .replace('INSERT_TEXTURE_DECLARATIONS', textureDeclarations)
         .replace('INSERT_MAP_DISTANCE', config.mapDistance);
 
+    // Upgrade to GLSL ES 3.0 for guaranteed 32-bit integer arithmetic
+    shaderCode = '#version 300 es\n' + shaderCode;
+    // Replace texture2D with texture (ES 3.0 syntax)
+    shaderCode = shaderCode.replace(/texture2D\(/g, 'texture(');
+
     this.potentialsProg = this.scene.createProgramInfo(
         this.shaderVert,
         shaderCode
@@ -180,8 +188,8 @@ CubeMarch.prototype.march = function(config) {
         Object.assign(uniforms, config.uniforms);
     }
 
-    var pixelCount = gl.drawingBufferWidth * gl.drawingBufferHeight;
-    var pixels = new Uint8Array(pixelCount * 4);
+    var pixelCount = this.floatFb.width * this.floatFb.height;
+    var pixels = new Float32Array(pixelCount * 4);
 
     var blockPotentialBuffers;
     var volumeIndex = 0;

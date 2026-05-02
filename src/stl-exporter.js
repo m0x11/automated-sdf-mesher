@@ -8,7 +8,7 @@ var STLExporter = function() {
 
 STLExporter.prototype = {
 
-    maxVerts: 6000000,
+    maxVerts: 200000000,
 
     startModel: function(filename) {
         this.part = -1;

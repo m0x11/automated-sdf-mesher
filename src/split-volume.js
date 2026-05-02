@@ -10,92 +10,48 @@ var maxDimension = function(dims) {
     return 2;
 };
 
-var subVectors = function(a, b) {
-    var c = [];
-    c[0] = a[0] - b[0];
-    c[1] = a[1] - b[1];
-    c[2] = a[2] - b[2];
-    return c;
-};
-
-var addVectors = function(a, b) {
-    var c = [];
-    c[0] = a[0] + b[0];
-    c[1] = a[1] + b[1];
-    c[2] = a[2] + b[2];
-    return c;
-};
-
-var multiplyVectors = function(a, b) {
-    var c = [];
-    c[0] = a[0] * b[0];
-    c[1] = a[1] * b[1];
-    c[2] = a[2] * b[2];
-    return c;
-};
-
-var ceilVector = function(a) {
-    var c = [];
-    c[0] = Math.ceil(a[0]);
-    c[1] = Math.ceil(a[1]);
-    c[2] = Math.ceil(a[2]);
-    return c;
-};
-
-var volumeFits = function(volume, maxSize) {
-    var vertexDims = addVectors(volume.dims, [1, 1, 1]);
-    var vertexCount = vertexDims[0] * vertexDims[1] * vertexDims[2];
-    var maxVerts = Math.pow(maxSize, 2);
-    return vertexCount < maxVerts;
-}
-
 var splitVolume = function(volume, maxSize) {
-    var volumes = [];
-    var bounds = volume.bounds;
-    var dims = volume.dims;
-
-    if ( ! volumeFits(volume, maxSize)) {
-        var size = subVectors(bounds[1], bounds[0]);
-        var slice = [1, 1, 1];
-        slice[maxDimension(dims)] = 0.5;
-        size = multiplyVectors(size, slice);
-
-        volumes.push({
-            bounds: [
-                bounds[0],
-                addVectors(bounds[0], size)
-            ],
-            dims: ceilVector(multiplyVectors(dims, slice))
-        });
-        volumes.push({
-            bounds: [
-                subVectors(bounds[1], size),
-                bounds[1]
-            ],
-            dims: ceilVector(multiplyVectors(dims, slice))
-        });
-    } else {
-        volumes.push({
-            bounds: bounds,
-            dims: dims
-        });
+    var maxVerts = Math.pow(maxSize, 2);
+    var totalDims = volume.dims;
+    var origin = volume.bounds[0];
+    var scale = [];
+    for (var i = 0; i < 3; i++) {
+        scale[i] = (volume.bounds[1][i] - volume.bounds[0][i]) / totalDims[i];
     }
 
-    volumes = volumes.reduce(function(vs, volume) {
-        if (volumeFits(volume, maxSize)) {
-            return vs.concat(volume);
+    // Recursively split using integer voxel index ranges.
+    // Bounds are only computed at leaf level from origin + index * scale,
+    // avoiding floating point drift through recursive subdivision.
+    function splitRange(start, end) {
+        var dims = [end[0] - start[0], end[1] - start[1], end[2] - start[2]];
+        var vertexCount = (dims[0] + 1) * (dims[1] + 1) * (dims[2] + 1);
+
+        if (vertexCount < maxVerts) {
+            var vertexDims = [dims[0] + 1, dims[1] + 1, dims[2] + 1];
+            return [{
+                dims: dims,
+                globalOrigin: origin,
+                globalScale: scale,
+                startVoxel: start.slice(),
+                vertexDims: vertexDims,
+                vertexCount: vertexCount,
+                size: Math.ceil(Math.sqrt(vertexCount))
+            }];
         }
-        return vs.concat(splitVolume(volume, maxSize));
-    }, []);
 
-    volumes = volumes.map(function(volume) {
-        volume.vertexDims = addVectors(volume.dims, [1, 1, 1]);
-        volume.vertexCount = volume.vertexDims[0] * volume.vertexDims[1] * volume.vertexDims[2];
-        volume.size = Math.ceil(Math.sqrt(volume.vertexCount));
-        return volume;
-    });
+        var axis = maxDimension(dims);
+        var splitAt = start[axis] + Math.ceil(dims[axis] / 2);
 
-    return volumes;
+        var mid1 = end.slice();
+        mid1[axis] = splitAt;
+
+        var mid2 = start.slice();
+        mid2[axis] = splitAt;
+
+        return splitRange(start, mid1).concat(splitRange(mid2, end));
+    }
+
+    return splitRange([0, 0, 0], totalDims.slice());
 }
 
 module.exports = splitVolume;
