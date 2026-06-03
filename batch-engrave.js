@@ -375,7 +375,7 @@ Setup (run once first):
 
   // Load mesher
   console.log('\n📄 Loading SDF Factory...');
-  await page.goto('http://localhost:8000?cachebust=' + Date.now());
+  await page.goto('http://localhost:' + (process.env.MESH_PORT || 8000) + '?cachebust=' + Date.now());
   await page.waitForSelector('.editor');
   await page.waitForFunction(
     () => window.cubeMarch && window.twgl && window.exporter && window.editor && window.ractive,
