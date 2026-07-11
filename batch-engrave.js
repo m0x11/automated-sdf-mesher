@@ -15,6 +15,7 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 // Glyph index mapping (must match setup-ephemeris-variable.js)
 const GLYPH_MAP = {
@@ -230,7 +231,9 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
                 console.log(`Mesh complete for ${dateStr}`);
                 window.exporter.finishModel();
                 window.ractive.set('progress', `${dateStr}: Complete!`);
-                resolve({ success: true, date: dateStr });
+                // Return total part count (0-indexed part + 1)
+                const totalParts = window.exporter.part + 1;
+                resolve({ success: true, date: dateStr, totalParts });
               }
             });
           } catch (err) {
@@ -246,6 +249,45 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
   );
 
   return result;
+}
+
+// ── Download tracking ────────────────────────────────────────────────
+function createDownloadTracker(cdpSession) {
+  let completedCount = 0;
+  const pending = new Map(); // guid -> filename
+
+  cdpSession.on('Browser.downloadWillBegin', (evt) => {
+    pending.set(evt.guid, evt.suggestedFilename);
+    console.log(`   📥 Download started: ${evt.suggestedFilename}`);
+  });
+
+  cdpSession.on('Browser.downloadProgress', (evt) => {
+    if (evt.state === 'completed' || evt.state === 'canceled') {
+      const name = pending.get(evt.guid) || evt.guid;
+      if (evt.state === 'completed') {
+        console.log(`   💾 Download complete: ${name}`);
+        completedCount++;
+      } else {
+        console.log(`   ⚠️  Download canceled: ${name}`);
+      }
+      pending.delete(evt.guid);
+    }
+  });
+
+  return {
+    // Wait until we've seen exactly `expectedCount` downloads complete
+    waitForCount: (expectedCount) =>
+      new Promise((resolve) => {
+        console.log(`   ⏳ Waiting for ${expectedCount} download(s) to complete...`);
+        const check = () => {
+          if (completedCount >= expectedCount && pending.size === 0) {
+            return resolve();
+          }
+          setTimeout(check, 500);
+        };
+        check();
+      }),
+  };
 }
 
 async function main() {
@@ -360,12 +402,32 @@ Setup (run once first):
   console.log(`\n🚀 Generating ${items.length} mesh(es) at resolution ${resolution}...`);
 
   // Launch browser
+  const downloadPath = path.join(os.homedir(), 'Downloads');
   const browser = await puppeteer.launch({
     headless: false,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
 
+  // Set download behavior at the browser level — suppresses the
+  // "allow downloading multiple files?" prompt entirely
+  const browserCdp = await browser.target().createCDPSession();
+  await browserCdp.send('Browser.setDownloadBehavior', {
+    behavior: 'allow',
+    downloadPath: downloadPath,
+    eventsEnabled: true,
+  });
+
   const page = await browser.newPage();
+
+  // Per-page CDP for download events (browser-level events don't
+  // always fire on page sessions, so listen on both)
+  const pageCdp = await page.createCDPSession();
+  await pageCdp.send('Browser.setDownloadBehavior', {
+    behavior: 'allow',
+    downloadPath: downloadPath,
+    eventsEnabled: true,
+  });
+  const tracker = createDownloadTracker(pageCdp);
   page.on('console', msg => {
     const text = msg.text();
     if (!text.includes('Ractive') && !text.includes('debug mode')) {
@@ -384,6 +446,7 @@ Setup (run once first):
 
   // Process each item
   const results = [];
+  let expectedDownloads = 0;
   for (const item of items) {
     // Small delay between meshes to let downloads complete
     if (results.length > 0) {
@@ -405,6 +468,13 @@ Setup (run once first):
       { timeout: 600000 },  // 10 minute timeout per mesh
       item.date
     );
+
+    // Wait until all parts for this mesh have finished downloading
+    if (result.success && result.totalParts) {
+      expectedDownloads += result.totalParts;
+      await tracker.waitForCount(expectedDownloads);
+      console.log(`   ✅ ${item.date} done (${result.totalParts} part${result.totalParts === 1 ? '' : 's'})`);
+    }
   }
 
   // Summary
@@ -419,8 +489,12 @@ Setup (run once first):
     failed.forEach(r => console.log(`      - ${r.date}: ${r.error}`));
   }
 
-  console.log('\n🎉 Batch complete! STL files downloaded to browser.');
-  console.log('   Close the browser window when ready.');
+  console.log('\n🎉 Batch complete! STL files downloaded to ~/Downloads.');
+  console.log('   Closing browser...');
+  await browser.close();
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  console.error('Fatal:', err);
+  process.exit(1);
+});
