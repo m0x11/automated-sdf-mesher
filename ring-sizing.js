@@ -115,11 +115,15 @@ function faceLipRadius(d) {
   const sphereR = 15 * d.cap;
   let lip = Infinity;
   const STEPS = 24;
+  // Bound must clear the REAL lip: the shoulder bulge rides the bore, not
+  // the cap — a cap-tied bound clips the walk at big sizes (it silently
+  // saturated the size 11.5-13 dial and mis-solved the Large cap).
+  const rMax = 4.8 * Math.max(d.cap, 1);
   for (let i = 0; i <= STEPS; i++) {
     const th = (i / STEPS) * (Math.PI / 2);
     const co = Math.cos(th), si = Math.sin(th);
     let last = 0;
-    for (let r = 0.1; r < 4.8 * d.cap; r += 0.004) {
+    for (let r = 0.1; r < rMax; r += 0.004) {
       const y = sphereR - Math.sqrt(sphereR * sphereR - r * r);
       if (headSolid([r * co, y, r * si], d) < 0) last = r;
       else if (last > 0) break;
@@ -174,11 +178,19 @@ function faceLipUnits(size) {
   }
   return v;
 }
-function dialMarginUnits() { return faceLipUnits(CANONICAL_SIZE) - DIAL_EDGE_UNITS * CANON_SCALE; }
+// dial scales WITH the measured lip: constant dial:face fraction, keeping
+// the authored margin:orbit-spacing proportion (sizes 3-6) at every size
+let lipBaseCache = null;
+function lipBaseUnits() {
+  if (lipBaseCache === null) {
+    lipBaseCache = faceLipRadius({ boreR: 3.9, bandDepth: 0.58, cap: 1, detail: 1 });
+  }
+  return lipBaseCache;
+}
 function dialScale(size) {
   const k = uniformScaleOrNull(size);
   if (k !== null) return k;
-  return (faceLipUnits(size) - dialMarginUnits()) / DIAL_EDGE_UNITS;
+  return faceLipUnits(size) / lipBaseUnits();
 }
 
 // --------------------------------------------------------------------------
