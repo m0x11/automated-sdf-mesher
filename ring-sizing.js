@@ -32,7 +32,7 @@ const CANONICAL_SIZE = 6;
 const CANON_SCALE = SIZE_CHART_MM[6] / SIZE_CHART_MM[8]; // 0.9116...
 const CAP_BASE_MM = 6.0 * MM_PER_UNIT; // un-scaled face: ringTop radius 3.0
 const BAND_DEPTH_BASE_MM = 0.58 * MM_PER_UNIT;
-const LARGE_FACE_TARGET_MM = 16.0;
+const LARGE_FACE_TARGET_MM = 15.5;
 const DIAL_EDGE_UNITS = 2.2 * 1.32 + 0.04 * 1.5; // Neptune channel outer edge
 
 const TIERS = [
