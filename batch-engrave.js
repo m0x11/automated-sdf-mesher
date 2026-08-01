@@ -166,7 +166,7 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
   // Sized runs: the size dials ride along as uniforms, and the bounding box
   // grows with the ring (the sized field is in model units at 1x)
   const sizedDecls = sizeDials
-    ? 'uniform float uBoreR;\nuniform float uBandDepth;\nuniform float uCapScale;\nuniform float uDialScale;\nuniform float uDetail;\nuniform float uCenterY;\n'
+    ? 'uniform float uBoreR;\nuniform float uBandDepth;\nuniform float uCapScale;\nuniform float uDialScale;\nuniform float uDetail;\nuniform float uTextScale;\nuniform float uCenterY;\n'
     : '';
   const sizedUniforms = sizeDials ? sizeDials.uniforms : {};
   const effParams = sizeDials

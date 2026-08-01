@@ -57,6 +57,11 @@ function bandDepthUnits(size) {
   return tierOf(size).bandDepthMm * UNIT_PER_MM;
 }
 function detailScale(size) { return uniformScaleOrNull(size) ?? CANON_SCALE; }
+// bore-engraving em multiplier: the engraving table authored the text at
+// 1.0 em-per-unit and the old pipeline scaled it WITH the ring — keeping
+// that (not the canonical detail scale) keeps the date as big as it always
+// was at every size, continuous with the uniform region below size 6
+function textScale(size) { return oldScale(size); }
 
 // --------------------------------------------------------------------------
 // Numeric mirror of the head SOLID (facemetrics.ts port) — measures the true
@@ -209,6 +214,7 @@ function computeSizeDials(size) {
       uCapScale: cap,
       uDialScale: dial,
       uDetail: detail,
+      uTextScale: textScale(size),
       uCenterY: centerY,
     },
     innerDiameterMm: innerDiameterMm(size),
