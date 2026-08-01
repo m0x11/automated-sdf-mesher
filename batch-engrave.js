@@ -16,6 +16,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { computeSizeDials } = require('./ring-sizing');
 
 // Glyph index mapping (must match setup-ephemeris-variable.js)
 const GLYPH_MAP = {
@@ -139,7 +140,7 @@ function dateToGlyphIndices(dateStr, dateFormat = 'mdy') {
   return indices;
 }
 
-async function generateMeshForDate(page, item, sdfCode, params, textureBase64, resolution) {
+async function generateMeshForDate(page, item, sdfCode, params, textureBase64, resolution, sizeDials) {
   const dateStr = item.date;
   const dateFormat = item.dateFormat || 'mdy';
   const unixTime = parseDateToUnix(dateStr);
@@ -154,18 +155,34 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
     parts.push(`date(${fileDate})`);
     if (item.size) parts.push(`size(${item.size})`);
     if (item.batch) parts.push(`batch(${item.batch})`);
+    if (sizeDials) parts.push('sized');
     filename = parts.join('_');
+  } else if (sizeDials) {
+    filename = `ephemeris-${fileDate}-size-${sizeDials.size}-sized-${resolution}`;
   } else {
     filename = `ephemeris-${fileDate}-${resolution}`;
   }
 
+  // Sized runs: the size dials ride along as uniforms, and the bounding box
+  // grows with the ring (the sized field is in model units at 1x)
+  const sizedDecls = sizeDials
+    ? 'uniform float uBoreR;\nuniform float uBandDepth;\nuniform float uCapScale;\nuniform float uDialScale;\nuniform float uDetail;\nuniform float uCenterY;\n'
+    : '';
+  const sizedUniforms = sizeDials ? sizeDials.uniforms : {};
+  const effParams = sizeDials
+    ? { ...params, size: [sizeDials.boxSize, sizeDials.boxSize, sizeDials.boxSize] }
+    : params;
+
   console.log(`\n📅 Processing: ${dateStr}${item.id ? ` (${item.id})` : ''}`);
   console.log(`   Display: ${displayText} (${dateFormat === 'dmy' ? 'dd·MON·yyyy' : 'MON·dd·yyyy'})`);
   console.log(`   Unix: ${unixTime}`);
+  if (sizeDials) {
+    console.log(`   Size: US ${sizeDials.size} (bore ⌀${sizeDials.innerDiameterMm.toFixed(1)} mm, face ⌀${sizeDials.faceMm.toFixed(1)} mm, box ${sizeDials.boxSize})`);
+  }
   console.log(`   Filename: ${filename}`);
 
   const result = await page.evaluate(
-    async (sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, filename) => {
+    async (sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, filename, sizedDecls, sizedUniforms) => {
       return new Promise((resolve) => {
         const runGeneration = async () => {
           try {
@@ -214,11 +231,12 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
 
             window.cubeMarch.march({
               mapDistance: sdfCode,
-              textureDeclarations: 'uniform sampler2D uMsdfTexture;\nuniform float uTargetDate;\nuniform int uGlyphIndices[11];',
+              textureDeclarations: 'uniform sampler2D uMsdfTexture;\nuniform float uTargetDate;\nuniform int uGlyphIndices[11];\n' + sizedDecls,
               uniforms: {
                 uMsdfTexture: texture,
                 uTargetDate: parseFloat(unixTime),
-                uGlyphIndices: new Int32Array(glyphIndices)
+                uGlyphIndices: new Int32Array(glyphIndices),
+                ...sizedUniforms
               },
               onSection: (data) => {
                 window.exporter.addSection(data.vertices, data.faces);
@@ -245,7 +263,7 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
         runGeneration();
       });
     },
-    sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, filename
+    sdfCode, effParams, textureBase64, unixTime, glyphIndices, resolution, dateStr, filename, sizedDecls, sizedUniforms
   );
 
   return result;
@@ -304,6 +322,10 @@ Usage:
 
 Options:
   --resolution <n>  Resolution per axis (default: 600)
+  --size <n>        US ring size (3..13, halves ok) — uses the PARAMETRIC
+                    ephemeris-sized geometry (new sizing system). The mesh
+                    is in model units; scale by 2.3205128 for mm
+                    (resize_sized.py does this).
   --file <path>     Read dates from file (one per line)
   --json <path>     Read from JSON file with format:
                     [{"id": "...", "engraving": "...", "size": "..."}, ...]
@@ -327,11 +349,14 @@ Setup (run once first):
 
   // Parse arguments
   let resolution = 600;
+  let ringSize = null; // US ring size -> parametric ephemeris-sized geometry
   let items = [];  // Array of {date, id} objects
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--resolution' && args[i + 1]) {
       resolution = parseInt(args[++i]);
+    } else if (args[i] === '--size' && args[i + 1]) {
+      ringSize = parseFloat(args[++i]);
     } else if (args[i] === '--json' && args[i + 1]) {
       const filePath = args[++i];
       const jsonContent = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -383,15 +408,24 @@ Setup (run once first):
     }
   }
 
-  // Load SDF files
-  const sdfDir = path.join(__dirname, '..', 'sdfs', 'ephemeris-variable');
+  // Load SDF files — --size selects the parametric ephemeris-sized SDF
+  // (new geometry, exact-mm cross-sections at every size); without it the
+  // legacy ephemeris-variable flow is untouched
+  let sizeDials = null;
+  if (ringSize !== null) {
+    sizeDials = computeSizeDials(ringSize);
+    console.log(`\n📐 Sized geometry: US ${ringSize} — bore ⌀${sizeDials.innerDiameterMm.toFixed(1)} mm, face ⌀${sizeDials.faceMm.toFixed(1)} mm`);
+    console.log(`   (mesh is in model units: multiply by ${sizeDials.mmPerUnit.toFixed(7)} for mm — see resize_sized.py)`);
+  }
+  const sdfFolder = sizeDials ? 'ephemeris-sized' : 'ephemeris-variable';
+  const sdfDir = path.join(__dirname, '..', 'sdfs', sdfFolder);
   const sdfFile = path.join(sdfDir, 'sdf.txt');
   const paramsFile = path.join(sdfDir, 'params.json');
   const textureFile = path.join(sdfDir, 'msdf.png');
 
   if (!fs.existsSync(sdfFile)) {
-    console.error(`\nError: ephemeris-variable SDF not found.`);
-    console.error(`Run setup first: cd ../engraving-table && node setup-ephemeris-variable.js`);
+    console.error(`\nError: ${sdfFolder} SDF not found.`);
+    console.error(`Run setup first: cd ../engraving-table && node setup-ephemeris-${sizeDials ? 'sized' : 'variable'}.js`);
     process.exit(1);
   }
 
@@ -455,7 +489,7 @@ Setup (run once first):
     }
 
     const result = await generateMeshForDate(
-      page, item, sdfCode, params, textureBase64, resolution
+      page, item, sdfCode, params, textureBase64, resolution, sizeDials
     );
     results.push(result);
 
