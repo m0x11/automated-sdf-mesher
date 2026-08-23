@@ -536,7 +536,7 @@ function writeObjectToTexture(data, objIdx, obj) {
     data[rowOffset + SLOT.BEND_TARGET] = (obj.bendTarget ?? 0) > 0.5 ? 1 : 0;
     let maxDs = 0;
     for (let i = 0; i < BEND_CURVE_SAMPLES - 1; i++) maxDs = Math.max(maxDs, Math.abs(bendSamples[i + 1] - bendSamples[i]));
-    data[rowOffset + SLOT.BEND_MAX_SLOPE] = Math.abs(obj.bendAmount ?? 1) * maxDs * (BEND_CURVE_SAMPLES - 1) / bendRng;
+    data[rowOffset + SLOT.BEND_MAX_SLOPE] = 1.5 * Math.abs(obj.bendAmount ?? 1) * maxDs * (BEND_CURVE_SAMPLES - 1) / bendRng; // 1.5x: Catmull-Rom LUT slope headroom
     data[rowOffset + SLOT.BEND_MAX_DISP] = bend.maxDisp;
   }
 
