@@ -91,7 +91,7 @@ const TYPE_PARAMS = {
   torus: ["majorRadius", "minorRadius", "vesica", "disc", "concentricCount", "concentricSpacing", "concentricBlend"],
   diamondTorus: ["majorRadius", "minorRadius", "edgeSoften", "vesica", "concentricCount", "concentricSpacing", "concentricBlend"],
   cylinder: ["radius", "height"],
-  box: ["sizeX", "sizeY", "sizeZ", "rounding", "taperAxis", "taperPosEnd", "taperNegEnd", "taperLength", "taperAmount", "bulgeAxis", "bulgeAmount", "bulgePos", "bulgeLength", "bulgeBlend"],
+  box: ["sizeX", "sizeY", "sizeZ", "rounding", "taperAxis", "taperPosEnd", "taperNegEnd", "taperLength", "taperAmount", "bulgeAxis", "bulgeAmount", "bulgePos", "bulgeLength", "bulgeBlend", "endRoundAxis", "endRoundPos", "endRoundNeg"],
   disk: ["radius", "thickness", "rounding"],
   tube: ["radius", "height", "wall", "rounding"],
 };
@@ -102,7 +102,7 @@ const TYPE_DEFAULTS = {
   torus: { majorRadius: 1, minorRadius: 0.3, vesica: 0, disc: 0, concentricCount: 1, concentricSpacing: 0.5, concentricBlend: 0 },
   diamondTorus: { majorRadius: 1, minorRadius: 0.3, edgeSoften: 0, vesica: 0, concentricCount: 1, concentricSpacing: 0.5, concentricBlend: 0 },
   cylinder: { radius: 1, height: 2 },
-  box: { sizeX: 1, sizeY: 1, sizeZ: 1, rounding: 0, taperAxis: 1, taperPosEnd: 0, taperNegEnd: 0, taperLength: 1, taperAmount: 0.5, bulgeAxis: 1, bulgeAmount: 0, bulgePos: 0, bulgeLength: 1, bulgeBlend: 0.25 },
+  box: { sizeX: 1, sizeY: 1, sizeZ: 1, rounding: 0, taperAxis: 1, taperPosEnd: 0, taperNegEnd: 0, taperLength: 1, taperAmount: 0.5, bulgeAxis: 1, bulgeAmount: 0, bulgePos: 0, bulgeLength: 1, bulgeBlend: 0.25, endRoundAxis: 1, endRoundPos: 0, endRoundNeg: 0 },
   disk: { radius: 2, thickness: 0.2, rounding: 0 },
   tube: { radius: 1, height: 2, wall: 0.2, rounding: 0 },
 };
