@@ -91,7 +91,7 @@ const TYPE_PARAMS = {
   torus: ["majorRadius", "minorRadius", "vesica", "disc", "concentricCount", "concentricSpacing", "concentricBlend"],
   diamondTorus: ["majorRadius", "minorRadius", "edgeSoften", "vesica", "concentricCount", "concentricSpacing", "concentricBlend"],
   cylinder: ["radius", "height"],
-  box: ["sizeX", "sizeY", "sizeZ", "rounding", "taperAxis", "taperPosEnd", "taperNegEnd", "taperLength", "taperAmount"],
+  box: ["sizeX", "sizeY", "sizeZ", "rounding", "taperAxis", "taperPosEnd", "taperNegEnd", "taperLength", "taperAmount", "bulgeAxis", "bulgeAmount", "bulgePos", "bulgeLength", "bulgeBlend"],
   disk: ["radius", "thickness", "rounding"],
   tube: ["radius", "height", "wall", "rounding"],
 };
@@ -102,7 +102,7 @@ const TYPE_DEFAULTS = {
   torus: { majorRadius: 1, minorRadius: 0.3, vesica: 0, disc: 0, concentricCount: 1, concentricSpacing: 0.5, concentricBlend: 0 },
   diamondTorus: { majorRadius: 1, minorRadius: 0.3, edgeSoften: 0, vesica: 0, concentricCount: 1, concentricSpacing: 0.5, concentricBlend: 0 },
   cylinder: { radius: 1, height: 2 },
-  box: { sizeX: 1, sizeY: 1, sizeZ: 1, rounding: 0, taperAxis: 1, taperPosEnd: 0, taperNegEnd: 0, taperLength: 1, taperAmount: 0.5 },
+  box: { sizeX: 1, sizeY: 1, sizeZ: 1, rounding: 0, taperAxis: 1, taperPosEnd: 0, taperNegEnd: 0, taperLength: 1, taperAmount: 0.5, bulgeAxis: 1, bulgeAmount: 0, bulgePos: 0, bulgeLength: 1, bulgeBlend: 0.25 },
   disk: { radius: 2, thickness: 0.2, rounding: 0 },
   tube: { radius: 1, height: 2, wall: 0.2, rounding: 0 },
 };
@@ -911,10 +911,20 @@ function computeBBox(sceneJson) {
       baseExtent = [R, h / 2, R];
     } else if (type === "box") {
       // sdfBoxPrism rotates the XZ profile 45°, so its world AABB grows in X/Z
-      const sx = params.sizeX ?? typeDefaults.sizeX ?? 1;
-      const sy = params.sizeY ?? typeDefaults.sizeY ?? 1;
-      const sz = params.sizeZ ?? typeDefaults.sizeZ ?? 1;
+      let sx = params.sizeX ?? typeDefaults.sizeX ?? 1;
+      let sy = params.sizeY ?? typeDefaults.sizeY ?? 1;
+      let sz = params.sizeZ ?? typeDefaults.sizeZ ?? 1;
       const round = params.rounding ?? typeDefaults.rounding ?? 0;
+      // Bulge (anti-taper) inflation — keep in sync with param-texture.ts
+      const bAmt = Math.max(params.bulgeAmount ?? 0, 0);
+      if (bAmt > 0.001) {
+        const f = 1 + bAmt;
+        const ax = Math.min(Math.max(Math.round(params.bulgeAxis ?? 1), 0), 2);
+        const reach = Math.abs(params.bulgePos ?? 0) + (params.bulgeLength ?? 1) / 2 + (params.bulgeBlend ?? 0) / 4;
+        if (ax === 0) { sy *= f; sz *= f; sx = Math.max(sx, reach); }
+        else if (ax === 1) { sx *= f; sz *= f; sy = Math.max(sy, reach); }
+        else { sx *= f; sy *= f; sz = Math.max(sz, reach); }
+      }
       const xz = (sx + sz) / Math.SQRT2 + round;
       baseExtent = [xz, sy + round, xz];
     } else {
@@ -1181,6 +1191,15 @@ function buildScene(sceneJson) {
   ].join("\n");
 
   const resolution = bbox.size.map((s) => Math.round(s * density));
+
+  // DUMP=dir env: write the generated shader + param rows for debugging
+  if (process.env.DUMP) {
+    const fs = require("fs");
+    fs.mkdirSync(process.env.DUMP, { recursive: true });
+    fs.writeFileSync(`${process.env.DUMP}/sdf.glsl`, sdfCode);
+    fs.writeFileSync(`${process.env.DUMP}/paramData.json`, JSON.stringify(Array.from(paramData)));
+    console.log(`  [dump] shader + paramData -> ${process.env.DUMP}`);
+  }
 
   return {
     sdfCode,
