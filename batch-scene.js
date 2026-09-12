@@ -87,6 +87,7 @@ while ((pm = pdRegex.exec(paramDefsBlock)) !== null) {
 // Type-specific param definitions
 const TYPE_PARAMS = {
   snowflake: snowflakeParamKeys,
+  snowflakeRail: snowflakeParamKeys,
   sphere: ["radius"],
   torus: ["majorRadius", "minorRadius", "vesica", "disc", "concentricCount", "concentricSpacing", "concentricBlend"],
   diamondTorus: ["majorRadius", "minorRadius", "edgeSoften", "vesica", "concentricCount", "concentricSpacing", "concentricBlend"],
@@ -94,10 +95,14 @@ const TYPE_PARAMS = {
   box: ["sizeX", "sizeY", "sizeZ", "rounding", "taperAxis", "taperPosEnd", "taperNegEnd", "taperLength", "taperAmount", "bulgeAxis", "bulgeAmount", "bulgePos", "bulgeLength", "bulgeBlend", "endRoundAxis", "endRoundPos", "endRoundNeg"],
   disk: ["radius", "thickness", "rounding"],
   tube: ["radius", "height", "wall", "rounding"],
+  relicBand: ["boreRadius", "halfWidth", "depth", "domeMid", "domeEdge", "edgeRound", "flareMid", "flareEdge", "boreBlend"],
+  cipherBand: ["boreRadius", "wall", "halfWidth", "fillet"],
+  frame: ["pitch", "frameW", "frameH", "frameY", "barSize", "blend", "innerCut", "scaleA", "scaleB", "scaleC", "cellBlend"],
 };
 
 const TYPE_DEFAULTS = {
   snowflake: snowflakeDefaults,
+  snowflakeRail: snowflakeDefaults,
   sphere: { radius: 1 },
   torus: { majorRadius: 1, minorRadius: 0.3, vesica: 0, disc: 0, concentricCount: 1, concentricSpacing: 0.5, concentricBlend: 0 },
   diamondTorus: { majorRadius: 1, minorRadius: 0.3, edgeSoften: 0, vesica: 0, concentricCount: 1, concentricSpacing: 0.5, concentricBlend: 0 },
@@ -105,9 +110,15 @@ const TYPE_DEFAULTS = {
   box: { sizeX: 1, sizeY: 1, sizeZ: 1, rounding: 0, taperAxis: 1, taperPosEnd: 0, taperNegEnd: 0, taperLength: 1, taperAmount: 0.5, bulgeAxis: 1, bulgeAmount: 0, bulgePos: 0, bulgeLength: 1, bulgeBlend: 0.25, endRoundAxis: 1, endRoundPos: 0, endRoundNeg: 0 },
   disk: { radius: 2, thickness: 0.2, rounding: 0 },
   tube: { radius: 1, height: 2, wall: 0.2, rounding: 0 },
+  relicBand: { boreRadius: 3.9, halfWidth: 1.2433, depth: 0.7067, domeMid: 0.155, domeEdge: 0.115, edgeRound: 0.16, flareMid: 0.04, flareEdge: 0.05, boreBlend: 0.13 },
+  cipherBand: { boreRadius: 3.9, wall: 0.45, halfWidth: 0.95, fillet: 0.05 },
+  frame: { pitch: 4.2, frameW: 10.1, frameH: 14.35, frameY: -0.15, barSize: 0, blend: 0.3, innerCut: 1, scaleA: 1.59, scaleB: 1.59, scaleC: 1.59, cellBlend: 0 },
 };
+// Frame border grid (locked; matches FRAME_ROWS/FRAME_COLS in the shader)
+const FRAME_ROWS = 9;
+const FRAME_COLS = 7;
 
-const SDF_TYPE_INDEX = { snowflake: 0, sphere: 1, torus: 2, diamondTorus: 3, stamp: 4, cylinder: 5, box: 6, disk: 7, tube: 8, group: 9 };
+const SDF_TYPE_INDEX = { snowflake: 0, sphere: 1, torus: 2, diamondTorus: 3, stamp: 4, cylinder: 5, box: 6, disk: 7, tube: 8, group: 9, snowflakeRail: 10, frame: 11, relicBand: 12, cipherBand: 13 };
 const PARAM_START_INDEX = 19;
 const TEX_WIDTH = 64;
 
@@ -175,6 +186,17 @@ const SLOT = {
   // Slot 189 (group pinch step bound) is viewer-only — the mesher never
   // marches, so it stays 0 here.
   GROUP_IDX: 190,
+  // Subtract mode: row index + 1 of the one object (or group → members) this
+  // carves; 0 = whole-scene subtract (legacy).
+  SUBTRACT_BLEND: 185,
+  SUBTRACT_TARGET: 186,
+  // Frame (type 11): baked in buildScene's second pass — bar half-size, the
+  // largest scaled snowflake reach (cell cull), A/B/C snowflake rows + 1.
+  FRAME_BAR: 180,
+  FRAME_REACH: 181,
+  FRAME_SNOW_A: 182,
+  FRAME_SNOW_B: 183,
+  FRAME_SNOW_C: 184,
 };
 
 // ── Pinch profile curve (keep in sync with flurry/src/lib/pinch-curve.ts) ─
@@ -374,10 +396,13 @@ function typeMaxThickness(obj) {
   const p = { ...(TYPE_DEFAULTS[obj.type] || {}), ...(obj.params || {}) };
   switch (obj.type) {
     case "tube": return Math.abs(p.wall ?? 0.2);
+    case "relicBand": return Math.abs(p.depth ?? 0.7067);
+    case "cipherBand": return Math.abs(p.wall ?? 0.45);
     case "torus":
     case "diamondTorus": return Math.abs(p.minorRadius ?? 0.3);
     case "disk": return Math.abs(p.thickness ?? 0.2);
-    case "snowflake": return Math.max(0, ...SNOWFLAKE_THICKNESS_KEYS.map((k) => Math.abs(p[k] ?? 0)));
+    case "snowflake":
+    case "snowflakeRail": return Math.max(0, ...SNOWFLAKE_THICKNESS_KEYS.map((k) => Math.abs(p[k] ?? 0)));
     default: return 0;
   }
 }
@@ -840,6 +865,44 @@ function applyGroupEnvelope(ext, pos, g, member) {
   return { ext: e, pos: [g.position?.[0] ?? 0, g.position?.[1] ?? 0, g.position?.[2] ?? 0] };
 }
 
+// Snowflake is complex — a generous half-extent box [x, planar, planar]
+function snowflakeExtent(p) {
+  const outerR = p.outerEnabled > 0.5 ? p.outerRadius + p.outerThickness : 0;
+  const hookExt = (p.hookPosY || 0) + (p.hookSize || 0) + 1.5;
+  const torusExt = Math.max(
+    Math.abs(p.t3CenterPosY) + p.t3CenterRadius + 0.5,
+    Math.abs(p.t3NeighborPosY) + p.t3NeighborRadius + 0.5,
+    p.secEnabled > 0.5 ? Math.abs(p.secT3NeighborPosY) + p.secT3NeighborRadius + 0.5 : 0
+  );
+  const halfExtent = Math.max(outerR + 0.5, hookExt, torusExt) + 0.3;
+  const hookMaxX = p.hookType > 0.5
+    ? Math.abs(p.hookXOffset || 0) + 3.0
+    : Math.abs(p.hookXOffset || 0) + 2.033;
+  const xHalf = Math.max(0.75, hookMaxX + 0.3);
+  return [xHalf, halfExtent, halfExtent];
+}
+
+// Frame (type 11): the referenced snowflake rows, effective bar half-size and
+// largest scaled reach — keep in sync with bakeFrameRow in param-texture.ts
+function frameBake(obj, objects) {
+  const p = { ...TYPE_DEFAULTS.frame, ...(obj.params || {}) };
+  const find = (id) => (id ? objects.findIndex((o) => o.id === id && o.type === "snowflake") : -1);
+  const ia = find(obj.frameSnowA), ib = find(obj.frameSnowB), ic = find(obj.frameSnowC);
+  const sc = (v) => (v > 0.001 ? v : 1);
+  // reach = bounding-sphere radius of a scaled copy (the shader's cell cull);
+  // reachX = its thin-axis half extent (the bbox only needs that in X)
+  let reach = 0, reachX = 0;
+  for (const [idx, scale] of [[ia, sc(p.scaleA)], [ib, sc(p.scaleB)], [ic, sc(p.scaleC)]]) {
+    if (idx < 0) continue;
+    const e = snowflakeExtent({ ...snowflakeDefaults, ...(objects[idx].params || {}) });
+    reach = Math.max(reach, Math.hypot(e[0], e[1], e[2]) * scale);
+    reachX = Math.max(reachX, e[0] * scale);
+  }
+  const barAuto = ia >= 0 ? (objects[ia].params?.rayThickness ?? 0.172) * sc(p.scaleA) : 0.27;
+  const bar = p.barSize > 0.0005 ? p.barSize : barAuto;
+  return { ia, ib, ic, reach, reachX, bar, p };
+}
+
 function computeBBox(sceneJson) {
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
@@ -859,22 +922,16 @@ function computeBBox(sceneJson) {
 
     // Base extent from type
     let baseExtent;
-    if (type === "snowflake") {
-      // Snowflake is complex — use a generous default
+    if (type === "snowflake" || type === "snowflakeRail") {
       const p = { ...snowflakeDefaults, ...params };
-      const outerR = p.outerEnabled > 0.5 ? p.outerRadius + p.outerThickness : 0;
-      const hookExt = (p.hookPosY || 0) + (p.hookSize || 0) + 1.5;
-      const torusExt = Math.max(
-        Math.abs(p.t3CenterPosY) + p.t3CenterRadius + 0.5,
-        Math.abs(p.t3NeighborPosY) + p.t3NeighborRadius + 0.5,
-        p.secEnabled > 0.5 ? Math.abs(p.secT3NeighborPosY) + p.secT3NeighborRadius + 0.5 : 0
-      );
-      const halfExtent = Math.max(outerR + 0.5, hookExt, torusExt) + 0.3;
-      const hookMaxX = p.hookType > 0.5
-        ? Math.abs(p.hookXOffset || 0) + 3.0
-        : Math.abs(p.hookXOffset || 0) + 2.033;
-      const xHalf = Math.max(0.75, hookMaxX + 0.3);
-      baseExtent = [xHalf, halfExtent, halfExtent];
+      baseExtent = snowflakeExtent(p);
+      const halfExtent = baseExtent[1];
+      const xHalf = baseExtent[0];
+      if (type === "snowflakeRail") {
+        // Rail: spokes strung along one in-plane axis (see param-texture.ts)
+        const railHalf = halfExtent + 0.5 * Math.max(p.numSpokes ?? 8, 1) * Math.abs(p.railSpacing ?? 2.5);
+        baseExtent = [xHalf, railHalf, railHalf];
+      }
     } else if (type === "sphere") {
       const r = params.radius ?? typeDefaults.radius ?? 1;
       baseExtent = [r, r, r];
@@ -909,6 +966,14 @@ function computeBBox(sceneJson) {
       const R = params.radius ?? typeDefaults.radius ?? 1;
       const h = params.height ?? typeDefaults.height ?? 2;
       baseExtent = [R, h / 2, R];
+    } else if (type === "relicBand") {
+      // sdfRelicBand: ring axis X, outer face within bore + depth
+      const R = (params.boreRadius ?? typeDefaults.boreRadius) + (params.depth ?? typeDefaults.depth);
+      baseExtent = [params.halfWidth ?? typeDefaults.halfWidth, R, R];
+    } else if (type === "cipherBand") {
+      // sdfCipherBand: ring axis X, section within bore + wall
+      const R = (params.boreRadius ?? typeDefaults.boreRadius) + (params.wall ?? typeDefaults.wall);
+      baseExtent = [params.halfWidth ?? typeDefaults.halfWidth, R, R];
     } else if (type === "box") {
       // sdfBoxPrism rotates the XZ profile 45°, so its world AABB grows in X/Z
       let sx = params.sizeX ?? typeDefaults.sizeX ?? 1;
@@ -927,6 +992,17 @@ function computeBBox(sceneJson) {
       }
       const xz = (sx + sz) / Math.SQRT2 + round;
       baseExtent = [xz, sy + round, xz];
+    } else if (type === "frame") {
+      const fb = frameBake(obj, sceneJson.objects);
+      const bar = fb.bar * Math.SQRT2;
+      const hy = 0.5 * (FRAME_ROWS - 1) * fb.p.pitch;
+      const hz = 0.5 * (FRAME_COLS - 1) * fb.p.pitch;
+      const bulge = ((fb.p.blend || 0) + (fb.p.cellBlend || 0)) / 4 + 0.3;
+      baseExtent = [
+        Math.max(fb.reachX, bar) + bulge,
+        Math.max(hy + fb.reach, fb.p.frameH + Math.abs(fb.p.frameY) + bar) + bulge,
+        Math.max(hz + fb.reach, fb.p.frameW + bar) + bulge,
+      ];
     } else {
       baseExtent = [2, 2, 2]; // fallback
     }
@@ -1121,6 +1197,19 @@ function buildScene(sceneJson) {
       ? objects.findIndex((o) => o.id === obj.groupId && o.type === "group")
       : -1;
     paramData[rowOffset + SLOT.GROUP_IDX] = gIdx >= 0 ? gIdx + 1 : 0;
+    const tIdx = obj.mode === "subtract" && obj.subtractTarget
+      ? objects.findIndex((o) => o.id === obj.subtractTarget)
+      : -1;
+    paramData[rowOffset + SLOT.SUBTRACT_TARGET] = tIdx >= 0 ? tIdx + 1 : 0;
+    paramData[rowOffset + SLOT.SUBTRACT_BLEND] = obj.mode === "subtract" ? Math.max(0, obj.subtractBlend ?? 0) : 0;
+    if (obj.type === "frame") {
+      const fb = frameBake(obj, objects);
+      paramData[rowOffset + SLOT.FRAME_SNOW_A] = fb.ia >= 0 ? fb.ia + 1 : 0;
+      paramData[rowOffset + SLOT.FRAME_SNOW_B] = fb.ib >= 0 ? fb.ib + 1 : 0;
+      paramData[rowOffset + SLOT.FRAME_SNOW_C] = fb.ic >= 0 ? fb.ic + 1 : 0;
+      paramData[rowOffset + SLOT.FRAME_BAR] = fb.bar;
+      paramData[rowOffset + SLOT.FRAME_REACH] = fb.reach;
+    }
     if (obj.type === "group" && paramData[rowOffset + SLOT.BEND_ON] > 0.5) {
       paramData[rowOffset + SLOT.BEND_TARGET] = 1;
     }
@@ -1170,6 +1259,7 @@ function buildScene(sceneJson) {
     `  return texture2D(uParamTex, uv);`,
     `}`,
     ``,
+    `#define RAIL 1 // Snowflake Rail paths compiled in (viewer toggles this per scene)`,
     `// "Keep thickness" multiplier (set by applyPinch)`,
     `float _pnThick = 1.0;`,
     `// Snowflake param defines`,
@@ -1187,6 +1277,7 @@ function buildScene(sceneJson) {
     `uniform sampler2D uParamTex;`,
     `uniform sampler2D uBlendTex;`,
     `uniform int uObjectCount;`,
+    `uniform int uTargetedSubCount;`,
     `uniform int uBlendCount;`,
   ].join("\n");
 
@@ -1208,6 +1299,7 @@ function buildScene(sceneJson) {
     texHeight,
     blendData: blend.data,
     objectCount: numObjects,
+    targetedSubCount: objects.filter((o) => o.mode === "subtract" && !o.hidden && o.subtractTarget && objects.some((t) => t.id === o.subtractTarget)).length,
     blendCount: blend.count,
     size: bbox.size,
     center: bbox.center,
@@ -1320,7 +1412,7 @@ async function main() {
 
     // Pass all data into page.evaluate
     const result = await page.evaluate(
-      (sdfCode, texDecl, paramDataArr, texHeight, blendDataArr, objectCount, blendCount, sceneSize, sceneCenter, resolution, meshName, finalSizeMM) => {
+      (sdfCode, texDecl, paramDataArr, texHeight, blendDataArr, objectCount, targetedSubCount, blendCount, sceneSize, sceneCenter, resolution, meshName, finalSizeMM) => {
         return new Promise((resolve) => {
           const run = async () => {
             try {
@@ -1393,6 +1485,7 @@ async function main() {
                   uParamTex: paramTex,
                   uBlendTex: blendTex,
                   uObjectCount: objectCount,
+                  uTargetedSubCount: targetedSubCount,
                   uBlendCount: blendCount,
                 },
                 onSection: (data) => {
@@ -1424,6 +1517,7 @@ async function main() {
       s.texHeight,
       Array.from(s.blendData),
       s.objectCount,
+      s.targetedSubCount,
       s.blendCount,
       s.size,
       s.center,
