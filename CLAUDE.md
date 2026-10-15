@@ -153,6 +153,26 @@ Large volumes are automatically split to fit GPU limits:
 - Each chunk processed sequentially
 - Results combined into single STL
 
+## Sparse (narrow-band) marching
+
+`march({ sparse: { lipschitz, block, coarseBlock } })` (batch-engrave
+`--sparse [L]`) evaluates mapDistance only near the surface: a Lipschitz
+octree (64 → 4 cell blocks) proves which blocks hold no sign change, those
+are filled with ±1e10, and only the vertices of the remaining blocks are
+evaluated — through `calc-potentials-gather.frag`, whose vertex expression
+is the dense shader's, so each potential is bit-identical. Marching runs the
+unchanged `marchCubes` over just those cells. Output is byte-identical to
+dense (`tools/compare_stl.py`); a res-1100 ring needs 4.6% of the dense
+evaluations at L=2. L is a safety bound on how fast the field changes
+(ephemeris-sized: identical at L=0.5, loses triangles at 0.25) — keep it
+generous, and re-check with compare_stl.py when an SDF changes.
+
+Sections are emitted in job order (ascending cell index per sub-volume) in
+both modes, so the triangle stream is deterministic run to run.
+
+`--cpu` runs Chrome on SwiftShader (no GPU, e.g. the Modal fulfillment
+worker); `--headless`, `--download-dir` as named.
+
 ## Output
 
 - STL files download directly to browser
