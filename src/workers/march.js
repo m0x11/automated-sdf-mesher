@@ -421,5 +421,25 @@ onmessage = function(e) {
 
         var result = marchCubes(start, end, dims, globalOrigin, globalScale, startVoxel, potentials);
         postMessage(result);
+
+    } else if (message.action == 'marchRuns') {
+
+        // Sparse marching: the same marchCubes over a list of [start, end)
+        // cell runs, concatenated into one section.
+        var data = message.data;
+        var runs = data.runs;
+        var vertices = [], faces = [];
+        for (var r = 0; r < runs.length; r += 2) {
+            var part = marchCubes(runs[r], runs[r + 1], data.dims, data.globalOrigin, data.globalScale, data.startVoxel, potentials);
+            var offset = vertices.length;
+            for (var v = 0; v < part.vertices.length; v++) {
+                vertices.push(part.vertices[v]);
+            }
+            for (var f = 0; f < part.faces.length; f++) {
+                var face = part.faces[f];
+                faces.push([face[0] + offset, face[1] + offset, face[2] + offset]);
+            }
+        }
+        postMessage({ vertices: vertices, faces: faces });
     }
 };

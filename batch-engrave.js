@@ -140,7 +140,7 @@ function dateToGlyphIndices(dateStr, dateFormat = 'mdy') {
   return indices;
 }
 
-async function generateMeshForDate(page, item, sdfCode, params, textureBase64, resolution, sizeDials) {
+async function generateMeshForDate(page, item, sdfCode, params, textureBase64, resolution, sizeDials, sparse) {
   const dateStr = item.date;
   const dateFormat = item.dateFormat || 'mdy';
   const unixTime = parseDateToUnix(dateStr);
@@ -182,7 +182,7 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
   console.log(`   Filename: ${filename}`);
 
   const result = await page.evaluate(
-    async (sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, filename, sizedDecls, sizedUniforms) => {
+    async (sdfCode, params, textureBase64, unixTime, glyphIndices, resolution, dateStr, filename, sizedDecls, sizedUniforms, sparse) => {
       return new Promise((resolve) => {
         const runGeneration = async () => {
           try {
@@ -231,6 +231,7 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
 
             window.cubeMarch.march({
               mapDistance: sdfCode,
+              sparse: sparse || undefined,
               textureDeclarations: 'uniform sampler2D uMsdfTexture;\nuniform float uTargetDate;\nuniform int uGlyphIndices[11];\n' + sizedDecls,
               uniforms: {
                 uMsdfTexture: texture,
@@ -263,7 +264,7 @@ async function generateMeshForDate(page, item, sdfCode, params, textureBase64, r
         runGeneration();
       });
     },
-    sdfCode, effParams, textureBase64, unixTime, glyphIndices, resolution, dateStr, filename, sizedDecls, sizedUniforms
+    sdfCode, effParams, textureBase64, unixTime, glyphIndices, resolution, dateStr, filename, sizedDecls, sizedUniforms, sparse
   );
 
   return result;
@@ -326,6 +327,12 @@ Options:
                     ephemeris-sized geometry (new sizing system). The mesh
                     is in model units; scale by 2.3205128 for mm
                     (resize_sized.py does this).
+  --sparse [L]      Narrow-band meshing: evaluate the SDF only near the
+                    surface (Lipschitz octree, safety bound L, default 4).
+                    Same triangles as dense, a fraction of the evaluations.
+  --headless        Run Chrome headless
+  --cpu             Software WebGL (SwiftShader) — for machines with no GPU
+  --download-dir <path>  Where STL parts land (default ~/Downloads)
   --file <path>     Read dates from file (one per line)
   --json <path>     Read from JSON file with format:
                     [{"id": "...", "engraving": "...", "size": "..."}, ...]
@@ -350,6 +357,10 @@ Setup (run once first):
   // Parse arguments
   let resolution = 600;
   let ringSize = null; // US ring size -> parametric ephemeris-sized geometry
+  let sparse = null;   // {lipschitz} when --sparse
+  let headless = false;
+  let cpu = false;
+  let downloadDir = path.join(os.homedir(), 'Downloads');
   let items = [];  // Array of {date, id} objects
 
   for (let i = 0; i < args.length; i++) {
@@ -357,6 +368,15 @@ Setup (run once first):
       resolution = parseInt(args[++i]);
     } else if (args[i] === '--size' && args[i + 1]) {
       ringSize = parseFloat(args[++i]);
+    } else if (args[i] === '--sparse') {
+      sparse = {};
+      if (args[i + 1] && /^[0-9.]+$/.test(args[i + 1])) sparse.lipschitz = parseFloat(args[++i]);
+    } else if (args[i] === '--headless') {
+      headless = true;
+    } else if (args[i] === '--cpu') {
+      cpu = true;
+    } else if (args[i] === '--download-dir' && args[i + 1]) {
+      downloadDir = path.resolve(args[++i]);
     } else if (args[i] === '--json' && args[i + 1]) {
       const filePath = args[++i];
       const jsonContent = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -436,10 +456,19 @@ Setup (run once first):
   console.log(`\n🚀 Generating ${items.length} mesh(es) at resolution ${resolution}...`);
 
   // Launch browser
-  const downloadPath = path.join(os.homedir(), 'Downloads');
+  const downloadPath = downloadDir;
+  fs.mkdirSync(downloadPath, { recursive: true });
   const browser = await puppeteer.launch({
-    headless: false,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    headless: headless,
+    // A software-rendered (--cpu) potentials pass blocks the page for
+    // minutes inside one evaluate call; never time the protocol out.
+    protocolTimeout: 0,
+    args: [
+      '--no-sandbox', '--disable-setuid-sandbox',
+      // containers ship a tiny /dev/shm; Chrome falls back to /tmp
+      ...(headless ? ['--disable-dev-shm-usage'] : []),
+      ...(cpu ? ['--use-angle=swiftshader', '--use-gl=angle', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [])
+    ]
   });
 
   // Set download behavior at the browser level — suppresses the
@@ -489,7 +518,7 @@ Setup (run once first):
     }
 
     const result = await generateMeshForDate(
-      page, item, sdfCode, params, textureBase64, resolution, sizeDials
+      page, item, sdfCode, params, textureBase64, resolution, sizeDials, sparse
     );
     results.push(result);
 
@@ -499,7 +528,9 @@ Setup (run once first):
         const progress = window.ractive.get('progress');
         return progress && progress.includes('Complete');
       },
-      { timeout: 600000 },  // 10 minute timeout per mesh
+      // 10 minutes per mesh on a GPU; a dense software-rendered (--cpu)
+      // mesh can take several times that.
+      { timeout: cpu ? 3600000 : 600000 },
       item.date
     );
 
@@ -523,7 +554,7 @@ Setup (run once first):
     failed.forEach(r => console.log(`      - ${r.date}: ${r.error}`));
   }
 
-  console.log('\n🎉 Batch complete! STL files downloaded to ~/Downloads.');
+  console.log(`\n🎉 Batch complete! STL files downloaded to ${downloadPath}.`);
   console.log('   Closing browser...');
   await browser.close();
 }
